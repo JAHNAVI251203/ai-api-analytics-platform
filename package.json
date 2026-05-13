@@ -1,0 +1,32 @@
+{
+  "name": "api-analytics",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon --exec ts-node src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.6.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.5.1",
+    "ioredis": "^5.10.1",
+    "pg": "^8.20.0",
+    "rate-limit-redis": "^5.0.0",
+    "redis": "^5.12.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  },
+  "devDependencies": {
+    "@types/ioredis": "^4.28.10",
+    "@types/pg": "^8.20.0",
+    "nodemon": "^3.1.14"
+  }
+}
