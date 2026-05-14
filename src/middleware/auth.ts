@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 
-// Simple API key validation (you'll enhance this later)
 export const validateApiKey = (req: Request, res: Response, next: NextFunction) => {
     const apiKey = req.headers['x-api-key'];
     
