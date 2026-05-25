@@ -1,5 +1,5 @@
 import rateLimit from 'express-rate-limit';
-import { RedisStore } from 'rate-limit-redis';
+import RedisStore from 'rate-limit-redis';
 import { redis } from '../config/database';
 
 //general rate limiter
@@ -9,6 +9,7 @@ export const generalLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     store: new RedisStore({
+        //client: redis,
         sendCommand: async (...args: string[]) => {
             return redis.call(args[0]!, ...args.slice(1)) as Promise<any>;
         },
@@ -22,6 +23,7 @@ export const logIngestionLimiter = rateLimit({
     windowMs: 1 * 60 * 1000, //1 minute
     max: 1000, //1000 logs per minute
     store: new RedisStore({
+        //client: redis,
         sendCommand: async (...args: string[]) => {
             return redis.call(args[0]!, ...args.slice(1)) as Promise<any>;
         },
@@ -37,6 +39,7 @@ export const createApiKeyLimiter = (requestsPerMinute: number) => {
         max: requestsPerMinute,
         keyGenerator: (req) => req.headers['x-api-key'] as string || req.ip || 'unknown',
         store: new RedisStore({
+            //client: redis,
             sendCommand: async (...args: string[]) => {
                 return redis.call(args[0]!, ...args.slice(1)) as Promise<any>;
             },
