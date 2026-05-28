@@ -5,6 +5,7 @@ import "./config/database";
 
 import logRoutes from './routes/logRoutes';
 import metricsRoutes from './routes/metricsRoutes';
+import aiRoutes from './routes/aiRoutes';
 
 import { generalLimiter, logIngestionLimiter } from './middleware/rateLimiter';
 
@@ -16,6 +17,7 @@ app.use('/api', generalLimiter);
 app.use('/api/logs', logIngestionLimiter);
 app.use('/api', logRoutes);
 app.use('/api', metricsRoutes);
+app.use("/api/ai", aiRoutes);
 
 
 app.get('/health', (req, res) => {

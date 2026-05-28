@@ -7,12 +7,14 @@
     "dev": "nodemon --exec ts-node src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test:rate": "tsx src/tests/test-rate-limit.ts"
+    "test:rate": "tsx src/tests/test-rate-limit.ts",
+    "test:ai": "tsx scripts/testAI.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.98.0",
     "@types/express": "^5.0.6",
     "@types/node": "^25.6.0",
     "dotenv": "^17.4.2",
