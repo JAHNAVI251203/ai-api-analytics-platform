@@ -16,16 +16,12 @@ export class AIService {
         body: JSON.stringify({
           contents: [
             {
-              parts: [
-                {
-                  text: prompt,
-                },
-              ],
+              parts: [{text: prompt}]
             },
           ],
           generationConfig: {
             temperature: 0.3,
-            maxOutputTokens: 500,
+            maxOutputTokens: 500
           },
         }),
       }
@@ -50,8 +46,8 @@ export class AIService {
       headers: {
         Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "http://localhost:3000",
-        "X-Title": "api-analytics-project",
+        "HTTP-Referer": "http://localhost:8000",
+        "X-Title": "api-analytics",
       },
       body: JSON.stringify({
         model: model,
@@ -81,7 +77,7 @@ export class AIService {
     prompt: string,
     maxTokens: number = 500
   ): Promise<string> {
-    // Try Gemini first
+    //try Gemini first
     try {
       console.log("Attempting Gemini API...");
       return await this.callGemini(prompt);
@@ -89,7 +85,7 @@ export class AIService {
       console.error("Gemini Error:", geminiError.message);
       console.warn("Gemini failed, falling back to OpenRouter...");
 
-      // Try OpenRouter with primary model
+      //try OpenRouter with primary model
       try {
         console.log("Attempting OpenRouter with GPT-3.5 Turbo...");
         return await this.callOpenRouter(
@@ -101,7 +97,7 @@ export class AIService {
         console.error("Primary OpenRouter model failed:", primaryError.message);
         console.warn("Trying backup model (Mistral)...");
 
-        // Try OpenRouter with backup model
+        //try OpenRouter with backup model
         try {
           return await this.callOpenRouter(
             prompt,
@@ -122,8 +118,9 @@ You are an API monitoring assistant. Analyze these error logs and provide:
 1. Root cause category (database, authentication, validation, etc.)
 2. Severity level (low, medium, high, critical)
 3. Brief suggested fix
-Errors:
-${JSON.stringify(errors, null, 2)}
+
+Errors:${JSON.stringify(errors, null, 2)}//2 is used for identation for AI to read and analyze better
+
 Respond in JSON format only:
 {
   "rootCause": "string",
