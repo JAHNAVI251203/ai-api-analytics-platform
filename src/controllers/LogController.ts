@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { LogModel } from '../models/LogModel';
 import { ErrorModel } from '../models/ErrorModel';
+import { RealtimeService } from '../services/RealtimeService';
 
 export class LogController {
     static async ingestLog(req: Request, res: Response) {
@@ -18,13 +19,18 @@ export class LogController {
 
             const log = await LogModel.create(logData);
 
+            const io = req.app.get('io');
+            const realtimeService = new RealtimeService(io);
+            realtimeService.emitNewLog(log);
+
             if (logData.status_code >= 400) {
-                await ErrorModel.trackError(
+                const error = await ErrorModel.trackError(
                     logData.endpoint,
                     logData.method,
                     logData.status_code,
                     logData.response_body
                 );
+                realtimeService.emitErrorAlert(error);
             }
             res.status(201).json({ success: true, data: log });
         } catch (error) {

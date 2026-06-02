@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Socket.io Test</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>Real-time API Monitor</h1>
+    <div id="logs"></div>
+    
+    <script>
+        const socket = io('http://localhost:8000');
+        
+        socket.on('connect', () => {
+            console.log('Connected!');
+            socket.emit('subscribe', 'logs');
+            socket.emit('subscribe', 'metrics');
+            socket.emit('subscribe', 'alerts');
+        });
+        
+        socket.on('new-log', (data) => {
+            console.log('New log:', data);
+            document.getElementById('logs').innerHTML += 
+                `<p>New log: ${data.log.endpoint} - ${data.log.status_code}</p>`;
+        });
+        
+        socket.on('error-alert', (data) => {
+            console.log('Error alert:', data);
+            alert(`Error: ${data.error.error_message}`);
+        });
+        
+        socket.on('metrics-update', (data) => {
+            console.log('Metrics update:', data);
+        });
+    </script>
+</body>
+</html>
