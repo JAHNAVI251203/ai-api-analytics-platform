@@ -6,12 +6,18 @@ import "./config/database";
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 
-
 import logRoutes from './routes/logRoutes';
 import metricsRoutes from './routes/metricsRoutes';
 import aiRoutes from './routes/aiRoutes';
 
 import { generalLimiter, logIngestionLimiter } from './middleware/rateLimiter';
+
+import { setupScheduledJobs } from './jobs/scheduler';
+import { metricsQueue } from './jobs/metricsCalculator';
+
+import { createBullBoard } from '@bull-board/api';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
+import { ExpressAdapter } from '@bull-board/express';
 
 const app = express();
 const httpServer = createServer(app);
@@ -39,6 +45,15 @@ io.on('connection', (socket) => {
 
 app.set('io', io);
 
+const serverAdapter = new ExpressAdapter();
+createBullBoard({
+    queues: [new BullMQAdapter(metricsQueue)],
+    serverAdapter
+});
+
+serverAdapter.setBasePath('/admin/queues');
+app.use('/admin/queues', serverAdapter.getRouter());
+
 app.use('/api', generalLimiter);
 app.use('/api/logs', logIngestionLimiter);
 app.use('/api', logRoutes);
@@ -51,8 +66,9 @@ app.get('/health', (req, res) => {
 });
 
 const PORT = process.env.PORT || 8000;
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, async () => {
     console.log(`Server running on port ${PORT}`);
+    await setupScheduledJobs();
 });
 
 export { io };

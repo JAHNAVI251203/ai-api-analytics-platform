@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { MetricsModel } from '../models/MetricsModel';
 import { redis } from '../config/database';
 import { ErrorModel } from '../models/ErrorModel';
+import { metricsQueue } from '../jobs/metricsCalculator';
 
 export class MetricsController {
     static async getMetrics(req: Request, res: Response) {
@@ -55,4 +56,13 @@ export class MetricsController {
             res.status(500).json({ success: false, error: 'Failed to fetch errors' });
         }
     }
+
+    static async triggerMetricsCalculation(req: Request, res: Response) {
+    const job = await metricsQueue.add('calculate-hourly-metrics', {});
+    res.json({ 
+        success: true, 
+        message: 'Job queued',
+        jobId: job.id 
+    });
+}
 }

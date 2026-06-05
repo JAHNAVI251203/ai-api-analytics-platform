@@ -9,7 +9,9 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is missing");
 }
 
-export const redis = new Redis(process.env.REDIS_URL as string);
+export const redis = new Redis(process.env.REDIS_URL as string, {
+    maxRetriesPerRequest: null,
+});
 
 // Test connections
 pool.query('SELECT NOW()', (err, res) => {
