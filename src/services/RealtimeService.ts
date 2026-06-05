@@ -7,7 +7,6 @@ export class RealtimeService {
         this.io = io;
     }
     
-    // Emit new log event
     emitNewLog(log: any) {
         this.io.to('logs').emit('new-log', {
             timestamp: new Date(),
@@ -15,7 +14,6 @@ export class RealtimeService {
         });
     }
     
-    // Emit metrics update
     emitMetricsUpdate(metrics: any) {
         this.io.to('metrics').emit('metrics-update', {
             timestamp: new Date(),
@@ -23,7 +21,6 @@ export class RealtimeService {
         });
     }
     
-    // Emit error alert
     emitErrorAlert(error: any) {
         this.io.to('alerts').emit('error-alert', {
             timestamp: new Date(),
@@ -32,7 +29,6 @@ export class RealtimeService {
         });
     }
     
-    // Emit anomaly detection
     emitAnomaly(anomaly: any) {
         this.io.to('alerts').emit('anomaly-detected', {
             timestamp: new Date(),
