@@ -10,6 +10,7 @@ import logRoutes from './routes/logRoutes';
 import metricsRoutes from './routes/metricsRoutes';
 import aiRoutes from './routes/aiRoutes';
 import alertRoutes from './routes/alertRoutes';
+import dashboardRoutes from './routes/dashboardRoutes';
 
 import { generalLimiter, logIngestionLimiter } from './middleware/rateLimiter';
 
@@ -61,7 +62,7 @@ app.use('/api', logRoutes);
 app.use('/api', metricsRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/alerts", alertRoutes);
-
+app.use("/api/dashboard", dashboardRoutes);
 
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date() });
