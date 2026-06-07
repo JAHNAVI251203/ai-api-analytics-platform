@@ -9,6 +9,7 @@ import { Server } from 'socket.io';
 import logRoutes from './routes/logRoutes';
 import metricsRoutes from './routes/metricsRoutes';
 import aiRoutes from './routes/aiRoutes';
+import alertRoutes from './routes/alertRoutes';
 
 import { generalLimiter, logIngestionLimiter } from './middleware/rateLimiter';
 
@@ -59,6 +60,7 @@ app.use('/api/logs', logIngestionLimiter);
 app.use('/api', logRoutes);
 app.use('/api', metricsRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/alerts", alertRoutes);
 
 
 app.get('/health', (req, res) => {

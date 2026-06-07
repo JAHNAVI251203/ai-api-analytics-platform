@@ -4,21 +4,29 @@ import { MetricsModel } from '../models/MetricsModel';
 export class AlertService {
     static async checkAlerts() {
         const rules = await AlertModel.getActiveRules();
-        
+
         for (const rule of rules) {
             const shouldAlert = await this.evaluateRule(rule);
-            
+
             if (shouldAlert) {
                 await this.sendAlert(rule, shouldAlert);
             }
         }
     }
-    
+
     private static async evaluateRule(rule: any) {
+       /*return {
+        type: 'test',
+        value: 100,
+        threshold: 5,
+        message: 'Test alert from API Monitoring Platform'
+    };*/
+
         const metrics = await MetricsModel.getOverallStats(rule.time_window);
-        
+
         switch (rule.condition_type) {
             case 'error_rate':
+
                 const errorRate = (metrics.error_count / metrics.total_requests) * 100;
                 if (errorRate > rule.threshold) {
                     return {
@@ -29,7 +37,7 @@ export class AlertService {
                     };
                 }
                 break;
-                
+
             case 'latency':
                 if (metrics.avg_response_time > rule.threshold) {
                     return {
@@ -40,13 +48,13 @@ export class AlertService {
                     };
                 }
                 break;
-                
+
             case 'traffic_spike':
-                // Compare with baseline (stored in Redis)
-                const baseline = 5000; // You'd fetch this from historical data
+                //compare with baseline which is stored in Redis or calculated from historical data
+                const baseline = 5000;
                 const currentTraffic = metrics.total_requests;
                 const percentIncrease = ((currentTraffic - baseline) / baseline) * 100;
-                
+
                 if (percentIncrease > rule.threshold) {
                     return {
                         type: 'traffic_spike',
@@ -57,10 +65,10 @@ export class AlertService {
                 }
                 break;
         }
-        
+
         return null;
     }
-    
+
     private static async sendAlert(rule: any, alertData: any) {
         const payload = {
             rule: rule.name,
@@ -69,25 +77,25 @@ export class AlertService {
             timestamp: new Date().toISOString(),
             data: alertData
         };
-        
+
         try {
             const response = await fetch(rule.webhook_url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            
+
             const responseData = await response.text();
-            
+
             await AlertModel.logAlert(rule.id, payload, {
                 status: response.status,
                 response: responseData
             });
-            
+
             console.log(`Alert sent: ${rule.name}`);
         } catch (error: any) {
             console.error('Failed to send alert:', error);
-            
+
             await AlertModel.logAlert(rule.id, payload, {
                 error: error.message
             });

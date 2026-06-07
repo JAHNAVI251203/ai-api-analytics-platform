@@ -8,10 +8,11 @@ export class AlertController {
             const rule = await AlertModel.createRule(req.body);
             res.status(201).json({ success: true, data: rule });
         } catch (error) {
-            res.status(500).json({ success: false, error: 'Failed to create alert rule' });
+            console.error("CREATE RULE ERROR:", error);
+            res.status(500).json({success: false, error: 'Failed to create alert rule' });
         }
     }
-   
+
     static async getRules(req: Request, res: Response) {
         try {
             const rules = await AlertModel.getActiveRules();
@@ -20,7 +21,7 @@ export class AlertController {
             res.status(500).json({ success: false, error: 'Failed to fetch rules' });
         }
     }
-    
+
     static async testAlert(req: Request, res: Response) {
         try {
             await AlertService.checkAlerts();
