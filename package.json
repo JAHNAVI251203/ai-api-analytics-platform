@@ -8,7 +8,9 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "test:rate": "tsx src/tests/test-rate-limit.ts",
-    "test:ai": "tsx scripts/testAI.ts"
+    "test:ai": "tsx scripts/testAI.ts",
+    "test:integration": "tsx src/tests/integration.test.ts",
+    "load-test": "tsx scripts/loadTest.ts"
   },
   "keywords": [],
   "author": "",

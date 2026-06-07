@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { AIService } from "../services/AIService";
 import { CostTracker } from "../services/CostTracker";
 import { redis } from "../config/database";
+import { MetricsModel } from "../models/MetricsModel";
 
 export class AIController {
   //POST /api/ai/analyze-errors ; cached for 5 mins
@@ -21,7 +22,8 @@ export class AIController {
       }
 
       //get top errors from last 24 hours
-      const errors = await (req.body.errors || []);
+      const errors = await MetricsModel.getOverallStats();
+      //const errors = await (req.body.errors || []);
 
       if (errors.length === 0) {
         return res.json({

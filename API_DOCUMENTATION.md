@@ -1,7 +1,7 @@
-# API Analytics Platform - API Documentation
+# AI - Powered API Analytics & Monitoring Platform - API Documentation
 
 ## Base URL
-`http://localhost:3000/api`
+`http://localhost:8000/api`
 
 ## Endpoints
 
@@ -31,5 +31,3 @@ Request:
 ### 5. Alerts
 **POST** `/alerts/rules`
 **GET** `/alerts/rules`
-
-... (complete all endpoints)

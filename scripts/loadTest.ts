@@ -7,7 +7,7 @@ async function loadTest() {
     
     const interval = setInterval(async () => {
         for (let i = 0; i < 100; i++) {
-            fetch('http://localhost:3000/api/logs', {
+            fetch('http://localhost:8000/api/logs', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -18,12 +18,12 @@ async function loadTest() {
                 })
             });
         }
-    }, 1000);
+    }, 1000);//1000ms = 1 sec
     
     setTimeout(() => {
         clearInterval(interval);
         console.log('Load test complete!');
-    }, 60000);
+    }, 60000);//60000ms = 60 sec = 1 min
 }
 
 loadTest();
