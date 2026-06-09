@@ -5,6 +5,7 @@ import express from 'express';
 import "./config/database";
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import cors from 'cors';
 
 import logRoutes from './routes/logRoutes';
 import metricsRoutes from './routes/metricsRoutes';
@@ -31,6 +32,7 @@ const io = new Server(httpServer, {
 });
 
 app.use(express.json());
+app.use(cors());
 
 io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);

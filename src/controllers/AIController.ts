@@ -22,7 +22,7 @@ export class AIController {
       }
 
       //get top errors from last 24 hours
-      const errors = await MetricsModel.getOverallStats();
+      const errors = await MetricsModel.getRecentErrors();
       //const errors = await (req.body.errors || []);
 
       if (errors.length === 0) {

@@ -6,8 +6,8 @@ async function testAPI() {
     const logResponse = await axios.post(`${BASE_URL}/logs`, {
         endpoint: '/test',
         method: 'GET',
-        status_code: 200,
-        response_time: 50
+        status_code: 500, //or 200
+        response_time: 1200//or 50
     });
     console.log('Log ingestion:', logResponse.data);
 
@@ -17,20 +17,7 @@ async function testAPI() {
     const dashboardResponse = await axios.get(`${BASE_URL}/dashboard`);
     console.log('Dashboard:', dashboardResponse.data);
 
-    const aiResponse = await axios.post(`${BASE_URL}/ai/analyze-errors`, {
-        errors: [
-            {
-                endpoint: "/test",
-                status_code: 500,
-                message: "Database connection failed"
-            },
-            {
-                endpoint: "/users",
-                status_code: 404,
-                message: "User not found"
-            }
-        ]
-    });
+    const aiResponse = await axios.post(`${BASE_URL}/ai/analyze-errors`);
     console.log("AI Analysis:", aiResponse.data);
 }
 

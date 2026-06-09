@@ -16,7 +16,7 @@ export class MetricsModel {
         const result = await pool.query(query);
         return result.rows[0];
     }
-    
+
     static async getEndpointStats(timeRange: string = '1 hour') {
         const query = `
             SELECT 
@@ -34,7 +34,7 @@ export class MetricsModel {
         const result = await pool.query(query);
         return result.rows;
     }
-    
+
     static async getStatusCodeDistribution(timeRange: string = '1 hour') {
         const query = `
             SELECT 
@@ -45,7 +45,26 @@ export class MetricsModel {
             GROUP BY status_code
             ORDER BY status_code
         `;
-        
+
+        const result = await pool.query(query);
+        return result.rows;
+    }
+
+    static async getRecentErrors(timeRange: string = '24 hours') {
+        const query = `
+            SELECT
+                endpoint,
+                method,
+                status_code,
+                response_time,
+                timestamp
+            FROM api_logs
+            WHERE status_code >= 400
+            AND timestamp >= NOW() - INTERVAL '${timeRange}'
+            ORDER BY timestamp DESC
+            LIMIT 100
+        `;
+
         const result = await pool.query(query);
         return result.rows;
     }
