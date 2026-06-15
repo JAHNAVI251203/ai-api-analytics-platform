@@ -6,6 +6,7 @@ import "./config/database";
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import { runMigrations } from "./migrations/init";
 
 import logRoutes from './routes/logRoutes';
 import metricsRoutes from './routes/metricsRoutes';
@@ -72,6 +73,7 @@ app.get('/health', (req, res) => {
 
 const PORT = process.env.PORT || 8000;
 httpServer.listen(PORT, async () => {
+    await runMigrations();
     console.log(`Server running on port ${PORT}`);
     await setupScheduledJobs();
 });

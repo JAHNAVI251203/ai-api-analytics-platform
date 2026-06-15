@@ -1,1 +1,1 @@
-CREATE DATABASE api_analytics;
+SELECT COUNT(*) FROM error_groups;

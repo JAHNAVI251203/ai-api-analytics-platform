@@ -8,11 +8,11 @@ export class ErrorModel {
             .update(`${endpoint}-${statusCode}-${errorMessage}`)
             .digest('hex');
     }
-    
+
     static async trackError(endpoint: string, method: string, statusCode: number, responseBody: any) {
         const errorMessage = responseBody?.error || responseBody?.message || 'Unknown error';
         const errorHash = this.generateErrorHash(endpoint, statusCode, errorMessage);
-        
+
         const query = `
             INSERT INTO error_groups (error_hash, error_message, endpoint, method, occurrence_count, last_seen)
             VALUES ($1, $2, $3, $4, 1, NOW())
@@ -22,11 +22,14 @@ export class ErrorModel {
                 last_seen = NOW()
             RETURNING *
         `;
-        
+
         const result = await pool.query(query, [errorHash, errorMessage, endpoint, method]);
-        return result.rows[0];
+        return {
+            ...result.rows[0],
+            status_code: statusCode
+        };
     }
-    
+
     static async getTopErrors(limit: number = 10) {
         const query = `
             SELECT * FROM error_groups
@@ -34,7 +37,7 @@ export class ErrorModel {
             ORDER BY occurrence_count DESC
             LIMIT $1
         `;
-        
+
         const result = await pool.query(query, [limit]);
         return result.rows;
     }

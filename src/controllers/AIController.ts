@@ -70,10 +70,7 @@ export class AIController {
         });
       }
 
-      const metricsWithContext = {
-        ...req.body.metrics,
-        slowest_endpoint: req.body.slowest_endpoint || "/api/reports/generate",
-      };
+      const metricsWithContext = await MetricsModel.getAnomalyMetrics("1 hour");
 
       console.log("Detecting anomalies with AI...");
       const anomalies = await AIService.detectAnomalies(metricsWithContext);

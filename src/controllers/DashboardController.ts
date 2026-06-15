@@ -182,4 +182,36 @@ export class DashboardController {
             });
         }
     }
+
+    static async searchEndpoints(req: Request, res: Response) {
+        try {
+            const search =
+                req.query.search as string || '';
+
+            const timeRange =
+                req.query.timeRange as string || '7 days';
+
+            const statusFilter =
+                req.query.statusFilter as string || 'all';
+
+            const endpoints = await MetricsModel.searchEndpoints(
+                    search,
+                    timeRange,
+                    statusFilter
+                );
+
+            res.json({
+                success: true,
+                data: endpoints
+            });
+
+        } catch (error) {
+            console.error(error);
+
+            res.status(500).json({
+                success: false,
+                error: 'Failed to search endpoints'
+            });
+        }
+    }
 }

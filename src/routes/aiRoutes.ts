@@ -3,9 +3,9 @@ import { AIController } from "../controllers/AIController";
 
 const router = Router();
 
-router.post("/analyze-errors", AIController.analyzeErrors);
+router.get("/analyze-errors", AIController.analyzeErrors);
 
-router.post("/detect-anomalies", AIController.detectAnomalies);
+router.get("/detect-anomalies", AIController.detectAnomalies);
 
 router.post("/summarize-logs", AIController.summarizeLogs);
 
