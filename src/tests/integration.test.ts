@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const BASE_URL = 'http://localhost:8000/api';
+//const BASE_URL = 'http://localhost:8000/api';
+const BASE_URL = 'https://ai-api-analytics-platform-production.up.railway.app/api';
 
 async function testAPI() {
     const logResponse = await axios.post(`${BASE_URL}/logs`, {
