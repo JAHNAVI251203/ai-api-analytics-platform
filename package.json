@@ -10,7 +10,8 @@
     "test:rate": "tsx src/tests/test-rate-limit.ts",
     "test:ai": "tsx scripts/testAI.ts",
     "test:integration": "tsx src/tests/integration.test.ts",
-    "load-test": "tsx scripts/loadTest.ts"
+    "load-test": "tsx scripts/loadTest.ts",
+    "seed": "tsx scripts/seedData.ts"
   },
   "keywords": [],
   "author": "",
