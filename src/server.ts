@@ -22,6 +22,8 @@ import { metricsQueue } from './jobs/metricsCalculator';
 import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { ExpressAdapter } from '@bull-board/express';
+import { redis, pool } from './config/database';
+
 
 const app = express();
 app.set("trust proxy", 1);
@@ -68,8 +70,26 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/alerts", alertRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 
-app.get('/health', (req, res) => {
+/*app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date() });
+}); */
+
+app.get('/health', async (req, res) => {
+    try {
+        await pool.query('SELECT 1');
+        await redis.ping();
+        res.json({ 
+            status: 'healthy', 
+            timestamp: new Date(),
+            uptime: process.uptime()
+        });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        res.status(503).json({ 
+            status: 'unhealthy', 
+            error: message 
+        });
+    }
 });
 
 const PORT = process.env.PORT || 8000;
