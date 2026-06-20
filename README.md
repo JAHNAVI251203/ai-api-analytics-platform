@@ -6,8 +6,8 @@ A real-time API monitoring platform with AI-powered error analysis, anomaly dete
 
 ## 🌐 Live Demo
 
-Frontend:
-https://https://ai-api-analytics-dashboard.vercel.app
+Frontend Dashboard:
+https://ai-api-analytics-dashboard.vercel.app
 
 Backend:
 https://ai-api-analytics-platform-production.up.railway.app

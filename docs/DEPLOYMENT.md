@@ -208,7 +208,7 @@ Vercel automatically:
 Example:
 
 ```text
-https://https://ai-api-analytics-dashboard.vercel.app
+https://ai-api-analytics-dashboard.vercel.app
 ```
 
 ---
