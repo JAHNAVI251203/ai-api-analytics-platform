@@ -48,15 +48,25 @@ export class AIController {
       });
     } catch (error) {
       console.error("Error in analyzeErrors:", error);
-      res.status(500).json({
-        success: false,
-        error: "AI analysis failed",
+
+      return res.json({
+        success: true,
+        data: {
+          rootCause: "AI Service Unavailable",
+          severity: "medium",
+          suggestedFix:
+            "Gemini/OpenRouter quota exhausted. Dashboard analytics continue to function normally.",
+          affectedEndpoints: [],
+        },
+        fallback: true,
       });
     }
   }
 
   //POST /api/ai/detect-anomalies ; cached for 2 mins
   static async detectAnomalies(req: Request, res: Response) {
+    let metricsWithContext: any = { error_count: 0 };
+
     try {
       const cacheKey = "ai:anomaly-detection";
       const cached = await redis.get(cacheKey);
@@ -70,7 +80,7 @@ export class AIController {
         });
       }
 
-      const metricsWithContext = await MetricsModel.getAnomalyMetrics("1 hour");
+      metricsWithContext = await MetricsModel.getAnomalyMetrics("1 hour");
 
       console.log("Detecting anomalies with AI...");
       const anomalies = await AIService.detectAnomalies(metricsWithContext);
@@ -86,9 +96,16 @@ export class AIController {
       });
     } catch (error) {
       console.error("Error in detectAnomalies:", error);
-      res.status(500).json({
-        success: false,
-        error: "Anomaly detection failed",
+      return res.json({
+        success: true,
+        data: {
+          hasAnomaly: metricsWithContext.error_count > 10,
+          anomalyType: metricsWithContext.error_count > 10 ? "error_spike" : "none",
+          severity: metricsWithContext.error_count > 10 ? "medium" : "low",
+          explanation: `Detected ${metricsWithContext.error_count} errors in the last hour.`,
+          recommendation: "Review recent API failures.",
+        },
+        fallback: true,
       });
     }
   }
@@ -132,10 +149,16 @@ export class AIController {
       });
     } catch (error) {
       console.error("Error in summarizeLogs:", error);
-      res.status(500).json({
-        success: false,
-        error: "Log summarization failed"
+
+      return res.json({
+        success: true,
+        data: {
+          summary:
+            "AI log summarization unavailable. Displaying raw logs instead."
+        },
+        fallback: true,
       });
     }
   }
+
 }

@@ -45,7 +45,8 @@ export class DashboardController {
                 ? (overallStats.success_count / overallStats.total_requests * 100).toFixed(2)
                 : 0;
 
-            let aiSummary = null;
+            //let aiSummary = null;
+            let aiSummary = "AI summary unavailable";
             const aiCacheKey = `ai:summary:${timeRange}`;
             const cachedAI = await redis.get(aiCacheKey);
 

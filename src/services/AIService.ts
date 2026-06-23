@@ -95,14 +95,15 @@ export class AIService {
         );
       } catch (primaryError: any) {
         console.error("Primary OpenRouter model failed:", primaryError.message);
-        console.warn("Trying backup model (Mistral)...");
+        console.warn("Trying backup model (GPT-OSS-20B)...");
 
         //try OpenRouter with backup model
         try {
           return await this.callOpenRouter(
             prompt,
             maxTokens,
-            "mistralai/mistral-7b-instruct:free"
+            //"mistralai/mistral-7b-instruct:free"
+            "openai/gpt-oss-20b:free"
           );
         } catch (backupError: any) {
           console.error("Backup OpenRouter model failed:", backupError.message);
@@ -130,7 +131,7 @@ Respond in JSON format only:
 }`;
 
     try {
-      const result = await this.analyzeWithFallback(prompt, 500);
+      const result = await this.analyzeWithFallback(prompt, 150);
       const jsonMatch = result.match(/\{[\s\S]*\}/);
       return JSON.parse(jsonMatch ? jsonMatch[0] : result);
     } catch (error) {
@@ -161,7 +162,7 @@ Respond in JSON only:
 }`;
 
     try {
-      const result = await this.analyzeWithFallback(prompt, 300);
+      const result = await this.analyzeWithFallback(prompt, 100);
       const jsonMatch = result.match(/\{[\s\S]*\}/);
       return JSON.parse(jsonMatch ? jsonMatch[0] : result);
     } catch (error) {
