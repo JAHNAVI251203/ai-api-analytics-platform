@@ -16,7 +16,7 @@ export class AIService {
         body: JSON.stringify({
           contents: [
             {
-              parts: [{text: prompt}]
+              parts: [{ text: prompt }]
             },
           ],
           generationConfig: {
@@ -99,17 +99,19 @@ export class AIService {
 
         //try OpenRouter with backup model
         try {
-          return await this.callOpenRouter(
+          const result = await this.callOpenRouter(
             prompt,
             maxTokens,
             //"mistralai/mistral-7b-instruct:free"
             "openai/gpt-oss-20b:free"
           );
+          console.log("GPT-OSS backup successful");
+          return result;
         } catch (backupError: any) {
           console.error("Backup OpenRouter model failed:", backupError.message);
           throw new Error("All AI services failed");
         }
-        console.log("GPT-OSS backup successful");
+
       }
     }
   }
