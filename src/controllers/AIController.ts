@@ -38,7 +38,7 @@ export class AIController {
       //5 minutes = 300 seconds
       await redis.setex(cacheKey, 300, JSON.stringify(analysis));
 
-      CostTracker.logAPICost(analysis.length || 200, "gpt-3.5-turbo");//cost estimation based on token count
+      CostTracker.logAPICost(analysis.length || 200, "openai/gpt-oss-20b:free");//cost estimation based on token count
 
       res.json({
         success: true,
@@ -137,13 +137,18 @@ export class AIController {
       console.log("Summarizing logs with AI...");
       const summary = await AIService.summarizeLogs(logs);
 
-      await redis.setex(cacheKey, 120, summary);
+      const safeSummary =
+        typeof summary === "string" && summary.trim().length > 0
+          ? summary
+          : "AI summary unavailable for this time range.";
 
-      CostTracker.logAPICost(150, "gpt-3.5-turbo");
+      await redis.setex(cacheKey, 120, safeSummary);
+
+      CostTracker.logAPICost(150, "openai/gpt-oss-20b:free");
 
       res.json({
         success: true,
-        data: { summary },
+        data: { summary: safeSummary },
         logCount: logs.length,
         cached: false,
       });
