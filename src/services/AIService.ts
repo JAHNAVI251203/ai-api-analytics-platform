@@ -109,6 +109,7 @@ export class AIService {
           console.error("Backup OpenRouter model failed:", backupError.message);
           throw new Error("All AI services failed");
         }
+        console.log("GPT-OSS backup successful");
       }
     }
   }
