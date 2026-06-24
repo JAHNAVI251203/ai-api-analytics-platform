@@ -9,7 +9,7 @@ A real-time API monitoring platform with AI-powered error analysis, anomaly dete
 Frontend Dashboard:
 https://ai-api-analytics-dashboard.vercel.app
 
-Video Walkthrough:(./assets/dashboard-preview.png)(https://drive.google.com/file/d/1UJP_wGTTDyGFtG5PTBl61dRddjT6NuwP/view?usp=sharing)
+Video Walkthrough:[![API Sentinel Demo](./assets/dashboard-preview.png)](https://drive.google.com/file/d/1UJP_wGTTDyGFtG5PTBl61dRddjT6NuwP/view?usp=sharing)
 
 Backend:
 https://ai-api-analytics-platform-production.up.railway.app
