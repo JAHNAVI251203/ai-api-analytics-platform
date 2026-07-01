@@ -29,5 +29,12 @@ export async function setupScheduledJobs() {
         { repeat: { pattern: '*/2 * * * *' } }
     );
 
+    // generate demo traffic every 30 mins
+    await metricsQueue.add(
+        "generate-demo-data",
+        {},
+        { repeat: { every: 30 * 60 * 1000 } }
+    );
+
     console.log('Scheduled jobs setup complete!!!');
 }
