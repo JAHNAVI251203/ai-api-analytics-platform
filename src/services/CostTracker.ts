@@ -1,7 +1,7 @@
 export class CostTracker {
   private static PRICING = {
     "gpt-3.5-turbo": { input: 0.0005, output: 0.0015 }, //per 1K tokens
-    "openai/gpt-oss-20b:free": { input: 0, output: 0 }, //free 
+    "openai/gpt-oss-120b:free": { input: 0, output: 0 }, //free 
     gemini: { input: 0.075, output: 0.3 }, //per 1M tokens
   };
 

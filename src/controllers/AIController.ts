@@ -38,7 +38,7 @@ export class AIController {
       //5 minutes = 300 seconds
       await redis.setex(cacheKey, 300, JSON.stringify(analysis));
 
-      CostTracker.logAPICost(analysis.length || 200, "openai/gpt-oss-20b:free");//cost estimation based on token count
+      CostTracker.logAPICost(analysis.length || 200, "openai/gpt-oss-120b:free");//cost estimation based on token count
 
       res.json({
         success: true,
@@ -144,7 +144,7 @@ export class AIController {
 
       await redis.setex(cacheKey, 120, safeSummary);
 
-      CostTracker.logAPICost(150, "openai/gpt-oss-20b:free");
+      CostTracker.logAPICost(150, "openai/gpt-oss-120b:free");
 
       res.json({
         success: true,

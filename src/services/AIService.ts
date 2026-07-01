@@ -103,7 +103,7 @@ export class AIService {
             prompt,
             maxTokens,
             //"mistralai/mistral-7b-instruct:free"
-            "openai/gpt-oss-20b:free"
+            "openai/gpt-oss-120b:free"
           );
           console.log("GPT-OSS backup successful");
           return result;
