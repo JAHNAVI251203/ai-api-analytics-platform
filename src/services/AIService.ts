@@ -118,20 +118,34 @@ export class AIService {
 
   static async analyzeErrors(errors: any[]): Promise<any> {
     const prompt = `
-You are an API monitoring assistant. Analyze these error logs and provide:
-1. Root cause category (database, authentication, validation, etc.)
-2. Severity level (low, medium, high, critical)
-3. Brief suggested fix
+      You are an experienced Site Reliability Engineer (SRE).
 
-Errors:${JSON.stringify(errors, null, 2)}//2 is used for identation for AI to read and analyze better
+      Analyze the following API error logs.
 
-Respond in JSON format only:
-{
-  "rootCause": "string",
-  "severity": "low|medium|high|critical",
-  "suggestedFix": "string",
-  "affectedEndpoints": ["string"]
-}`;
+      Your task:
+      1. Identify the most likely root cause category.
+      2. Determine the severity.
+      3. Suggest one practical fix.
+      4. List only the affected endpoints.
+
+      Rules:
+      - Base your answer ONLY on the provided logs.
+      - Do not invent missing information.
+      - Keep explanations short and technical.
+      - If multiple errors exist, identify the dominant issue.
+
+      Error Logs:
+      ${JSON.stringify(errors, null, 2)}
+
+      Return ONLY valid JSON.
+
+      {
+        "rootCause": "Database|Authentication|Validation|Timeout|Network|Rate Limit|Internal Server Error|Unknown",
+        "severity": "low|medium|high|critical",
+        "suggestedFix": "string",
+        "affectedEndpoints": ["string"]
+      }
+    `;
 
     try {
       const result = await this.analyzeWithFallback(prompt, 150);
@@ -145,24 +159,39 @@ Respond in JSON format only:
 
   static async detectAnomalies(metrics: any): Promise<any> {
     const prompt = `
-Analyze these API metrics for the last hour and identify any anomalies:
-Metrics:
-- Total requests: ${metrics.total_requests}
-- Average response time: ${metrics.avg_response_time}ms
-- Error rate: ${((metrics.error_count / metrics.total_requests) * 100).toFixed(2)}%
-- Slowest endpoint: ${metrics.slowest_endpoint}
-Historical baseline (typical values):
-- Average requests/hour: 5000
-- Average response time: 150ms
-- Error rate: 2%
-Respond in JSON only:
-{
-  "hasAnomaly": boolean,
-  "anomalyType": "traffic_spike|latency_increase|error_spike|none",
-  "severity": "low|medium|high",
-  "explanation": "string",
-  "recommendation": "string"
-}`;
+      You are an experienced Site Reliability Engineer (SRE).
+
+      Analyze the API metrics below and determine whether an anomaly exists.
+
+      Rules:
+      - Compare ONLY against the historical baseline.
+      - All response times are in milliseconds (ms).
+      - Low traffic alone is NOT an anomaly.
+      - Do not exaggerate problems.
+      - Consider latency above 1000 ms or error rate above 20% as significant.
+      - If everything looks normal, return "none".
+
+      Current Metrics:
+      - Total Requests: ${metrics.total_requests}
+      - Average Response Time: ${metrics.avg_response_time} ms
+      - Error Rate: ${((metrics.error_count / Math.max(metrics.total_requests, 1)) * 100).toFixed(2)}%
+      - Slowest Endpoint: ${metrics.slowest_endpoint}
+
+      Historical Baseline (Demo Environment):
+      - Typical Requests/Hour: 15-30
+      - Average Response Time: 150 ms
+      - Average Error Rate: 5-10%
+
+      Return ONLY valid JSON.
+
+      {
+        "hasAnomaly": true,
+        "anomalyType": "traffic_drop|traffic_spike|latency_increase|error_spike|none",
+        "severity": "low|medium|high",
+        "explanation": "string",
+        "recommendation": "string"
+      }
+    `;
 
     try {
       const result = await this.analyzeWithFallback(prompt, 100);
@@ -176,12 +205,24 @@ Respond in JSON only:
 
   static async summarizeLogs(logs: any[]): Promise<string> {
     const prompt = `
-Summarize these API logs in 2-3 sentences for a developer dashboard:
-${JSON.stringify(logs.slice(0, 50), null, 2)}
-Focus on:
-- Most active endpoints
-- Any concerning patterns
-- Performance highlights`;
+      You are an experienced Site Reliability Engineer writing a dashboard summary.
+
+      Analyze these API logs.
+
+      Rules:
+      - Use ONLY the supplied logs.
+      - Do NOT invent endpoints or metrics.
+      - All response times are in milliseconds (ms).
+      - If traffic is low, simply mention that traffic volume is low.
+      - Mention only meaningful issues.
+      - If the API looks healthy, explicitly say so.
+      - Keep the summary between 2 and 4 sentences.
+      - Write naturally for developers.
+      - No bullet points.
+      - No markdown.
+
+      Logs:${JSON.stringify(logs.slice(0, 50), null, 2)}
+    `;
 
     try {
       return await this.analyzeWithFallback(prompt, 150);
