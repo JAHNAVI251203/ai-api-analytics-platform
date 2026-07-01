@@ -205,18 +205,24 @@ export class AIService {
 
   static async summarizeLogs(logs: any[]): Promise<string> {
     const prompt = `
-      You are an experienced Site Reliability Engineer writing a dashboard summary.
+      You are an experienced Site Reliability Engineer writing a dashboard summary.Write the summary exactly as it would appear in Datadog, New Relic, Grafana Cloud, or Dynatrace. Avoid generic AI wording and keep it concise, factual, and professional.
 
       Analyze these API logs.
+
+      If the request volume is below the historical baseline, mention low traffic only once if it is relevant. Otherwise, focus on API health and performance instead.
 
       Rules:
       - Use ONLY the supplied logs.
       - Do NOT invent endpoints or metrics.
       - All response times are in milliseconds (ms).
-      - If traffic is low, simply mention that traffic volume is low.
-      - Mention only meaningful issues.
-      - If the API looks healthy, explicitly say so.
-      - Keep the summary between 2 and 4 sentences.
+      - If traffic volume is below the historical baseline, mention it briefly only if it helps explain the overall system behavior. Do not overemphasize low traffic.
+      - Mention only significant issues such as repeated errors, elevated error rates, or consistently slow endpoints. Ignore isolated single errors unless they are HTTP 5xx errors.
+      - If the API looks healthy, emphasize stable performance before mentioning any minor issues.
+      - Consider average response times below 200 ms as fast.
+      - Consider 200–500 ms as acceptable.
+      - Consider above 500 ms as elevated latency.
+      - Keep the summary between 3 and 6 sentences.
+      - Do not repeat the same observation in different sentences.
       - Write naturally for developers.
       - No bullet points.
       - No markdown.
