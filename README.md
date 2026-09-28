@@ -339,6 +339,17 @@ BullMQ handles:
 * Anomaly detection
 * Scheduled maintenance tasks
 
+Sample telemetry is not a BullMQ job. Set `ENABLE_SAMPLE_DATA=true` to create
+or refresh the same labeled sample records at startup without duplicating them.
+Set it to `false` for a live-only environment.
+
+### Authentication
+
+Create an account or sign in through the dashboard. The backend stores only
+bcrypt password hashes and returns a JWT for protected API and Socket.IO access.
+Set `JWT_SECRET` in the backend environment. End users never receive direct
+database credentials.
+
 Bull Board provides:
 
 * Queue monitoring
@@ -358,6 +369,7 @@ Bull Board provides:
 * Endpoint search
 * Status code filters
 * Time-range selection
+* Live/sample data selection
 * CSV export
 * Toast notifications
 
@@ -412,6 +424,15 @@ npm run seed
 ```
 
 Populates PostgreSQL with sample API logs for dashboard testing.
+
+### Verify Sample Data
+
+```bash
+npm run test:sample
+```
+
+Runs the sample bootstrap twice and verifies that it creates rows without
+duplicating them.
 
 ---
 
@@ -495,7 +516,6 @@ postman_collection.json
 * Email notifications
 * Slack integration
 * Multi-project support
-* User authentication
 * Role-based access control
 * Advanced machine learning anomaly detection
 

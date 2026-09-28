@@ -30,6 +30,11 @@
 3. **Cleanup** (Daily at 2 AM)
    - Removes logs >30 days old
 
+## Sample Telemetry
+
+When `ENABLE_SAMPLE_DATA=true`, startup upserts a fixed labeled sample dataset.
+It is separate from the scheduled-job system and never generates random traffic.
+
 ## Caching Strategy
 
 - Metrics: 30-60 second TTL

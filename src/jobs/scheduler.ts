@@ -1,6 +1,13 @@
 import { metricsQueue } from './metricsCalculator';
 
 export async function setupScheduledJobs() {
+    const repeatableJobs = await metricsQueue.getRepeatableJobs();
+    for (const job of repeatableJobs) {
+        if (job.name === 'generate-demo-data') {
+            await metricsQueue.removeRepeatableByKey(job.key);
+        }
+    }
+
     //calculating metrics every 5 minutes
     await metricsQueue.add(
         'calculate-hourly-metrics',
@@ -27,13 +34,6 @@ export async function setupScheduledJobs() {
         'check-alerts',
         {},
         { repeat: { pattern: '*/2 * * * *' } }
-    );
-
-    // generate demo traffic every 30 mins
-    await metricsQueue.add(
-        "generate-demo-data",
-        {},
-        { repeat: { every: 30 * 60 * 1000 } }
     );
 
     console.log('Scheduled jobs setup complete!!!');

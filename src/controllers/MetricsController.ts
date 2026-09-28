@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { MetricsModel } from '../models/MetricsModel';
+import { MetricsModel, normalizeDataSource } from '../models/MetricsModel';
 import { redis } from '../config/database';
 import { ErrorModel } from '../models/ErrorModel';
 import { metricsQueue } from '../jobs/metricsCalculator';
@@ -8,7 +8,8 @@ export class MetricsController {
     static async getMetrics(req: Request, res: Response) {
         try {
             const timeRange = req.query.timeRange as string || '1 hour';
-            const cacheKey = `metrics:${timeRange}`;//checking cached data first
+            const dataSource = normalizeDataSource(req.query.dataSource as string);
+            const cacheKey = `metrics:${dataSource}:${timeRange}`;//checking cached data first
             const cached = await redis.get(cacheKey);
 
             if (cached) {
@@ -17,9 +18,9 @@ export class MetricsController {
 
             //calculating metrics
             const [overallStats, endpointStats, statusDistribution] = await Promise.all([
-                MetricsModel.getOverallStats(timeRange),
-                MetricsModel.getEndpointStats(timeRange),
-                MetricsModel.getStatusCodeDistribution(timeRange)
+                MetricsModel.getOverallStats(timeRange, dataSource),
+                MetricsModel.getEndpointStats(timeRange, dataSource),
+                MetricsModel.getStatusCodeDistribution(timeRange, dataSource)
             ]);
 
             const metrics = {
@@ -49,7 +50,8 @@ export class MetricsController {
     static async getTopErrors(req: Request, res: Response) {
         try {
             const limit = parseInt(req.query.limit as string) || 10;
-            const errors = await ErrorModel.getTopErrors(limit);
+            const dataSource = normalizeDataSource(req.query.dataSource as string);
+            const errors = await ErrorModel.getTopErrors(limit, dataSource);
             res.json({ success: true, data: errors });
         } catch (error) {
             console.error('Error fetching top errors:', error);

@@ -18,9 +18,39 @@ http://localhost:8000
 
 # Authentication
 
-Currently no authentication is required.
+Authentication uses JWTs. Create an account with `POST /api/auth/register` or
+sign in with `POST /api/auth/login`, then send the returned token on protected
+requests:
 
-Future versions will support API key authentication and role-based access control.
+```http
+Authorization: Bearer <token>
+```
+
+Passwords are stored as bcrypt hashes. Users access the application through the
+backend; they do not receive direct database credentials.
+
+## Register
+
+```json
+{
+  "name": "Jane Doe",
+  "email": "jane@example.com",
+  "password": "At-least-8!"
+}
+```
+
+## Login
+
+```json
+{
+  "name": "Jane Doe",
+  "email": "jane@example.com",
+  "password": "At-least-8!"
+}
+```
+
+Passwords must be at least 8 characters and include one capital letter, one
+number, and one special character.
 
 ---
 

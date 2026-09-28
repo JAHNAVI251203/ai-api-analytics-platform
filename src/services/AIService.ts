@@ -95,7 +95,7 @@ export class AIService {
         );
       } catch (primaryError: any) {
         console.error("Primary OpenRouter model failed:", primaryError.message);
-        console.warn("Trying backup model (GPT-OSS-20B)...");
+        console.warn("Trying backup model (GPT-OSS-120B)...");
 
         //try OpenRouter with backup model
         try {

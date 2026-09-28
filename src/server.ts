@@ -7,12 +7,15 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import { runMigrations } from "./migrations/init";
+import { ensureSampleData } from './services/SampleDataService';
 
 import logRoutes from './routes/logRoutes';
 import metricsRoutes from './routes/metricsRoutes';
 import aiRoutes from './routes/aiRoutes';
 import alertRoutes from './routes/alertRoutes';
 import dashboardRoutes from './routes/dashboardRoutes';
+import authRoutes from './routes/authRoutes';
+import { authenticateJwt, verifyJwt } from './middleware/auth';
 
 import { generalLimiter, logIngestionLimiter } from './middleware/rateLimiter';
 
@@ -32,6 +35,20 @@ const io = new Server(httpServer, {
     cors: {
         origin: "*", 
         methods: ["GET", "POST"]
+    }
+});
+
+io.use((socket, next) => {
+    const token = socket.handshake.auth?.token;
+    if (typeof token !== 'string') {
+        return next(new Error('Authentication required'));
+    }
+
+    try {
+        socket.data.user = verifyJwt(token);
+        next();
+    } catch {
+        next(new Error('Invalid or expired token'));
     }
 });
 
@@ -60,9 +77,11 @@ createBullBoard({
 });
 
 serverAdapter.setBasePath('/admin/queues');
-app.use('/admin/queues', serverAdapter.getRouter());
+app.use('/admin/queues', authenticateJwt, serverAdapter.getRouter());
 
 app.use('/api', generalLimiter);
+app.use('/api/auth', authRoutes);
+app.use('/api', authenticateJwt);
 app.use('/api/logs', logIngestionLimiter);
 app.use('/api', logRoutes);
 app.use('/api', metricsRoutes);
@@ -95,6 +114,9 @@ app.get('/health', async (req, res) => {
 const PORT = process.env.PORT || 8000;
 httpServer.listen(PORT, async () => {
     await runMigrations();
+    if (process.env.ENABLE_SAMPLE_DATA === 'true') {
+        await ensureSampleData();
+    }
     console.log(`Server running on port ${PORT}`);
     await setupScheduledJobs();
 });

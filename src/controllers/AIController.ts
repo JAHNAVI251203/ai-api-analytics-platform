@@ -2,14 +2,15 @@ import { Request, Response } from "express";
 import { AIService } from "../services/AIService";
 import { CostTracker } from "../services/CostTracker";
 import { redis } from "../config/database";
-import { MetricsModel } from "../models/MetricsModel";
+import { MetricsModel, normalizeDataSource } from "../models/MetricsModel";
 
 export class AIController {
   //POST /api/ai/analyze-errors ; cached for 5 mins
   static async analyzeErrors(req: Request, res: Response) {
     try {
       //check cache first(AI calls are expensive)
-      const cacheKey = "ai:error-analysis";
+      const dataSource = normalizeDataSource(req.query.dataSource as string);
+      const cacheKey = `ai:error-analysis:${dataSource}`;
       const cached = await redis.get(cacheKey);
 
       if (cached) {
@@ -22,7 +23,7 @@ export class AIController {
       }
 
       //get top errors from last 24 hours
-      const errors = await MetricsModel.getRecentErrors();
+      const errors = await MetricsModel.getRecentErrors('24 hours', dataSource);
       //const errors = await (req.body.errors || []);
 
       if (errors.length === 0) {
@@ -68,7 +69,8 @@ export class AIController {
     let metricsWithContext: any = { error_count: 0 };
 
     try {
-      const cacheKey = "ai:anomaly-detection";
+      const dataSource = normalizeDataSource(req.query.dataSource as string);
+      const cacheKey = `ai:anomaly-detection:${dataSource}`;
       const cached = await redis.get(cacheKey);
 
       if (cached) {
@@ -80,7 +82,7 @@ export class AIController {
         });
       }
 
-      metricsWithContext = await MetricsModel.getAnomalyMetrics("1 hour");
+      metricsWithContext = await MetricsModel.getAnomalyMetrics("1 hour", dataSource);
 
       console.log("Detecting anomalies with AI...");
       const anomalies = await AIService.detectAnomalies(metricsWithContext);

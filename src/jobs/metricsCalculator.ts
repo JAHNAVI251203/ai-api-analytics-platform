@@ -3,7 +3,6 @@ import { pool, redis } from '../config/database';
 import { MetricsModel } from '../models/MetricsModel';
 import { AIService } from '../services/AIService';
 import { AlertService } from '../services/AlertService';
-import { DemoDataService } from "../services/DemoDataService";
 
 export const metricsQueue = new Queue('metrics-calculation', {
     connection: redis
@@ -39,10 +38,6 @@ export const metricsWorker = new Worker('metrics-calculation',
 
             case "check-alerts":
                 await AlertService.checkAlerts();
-                break;
-
-            case "generate-demo-data":
-                await DemoDataService.generateDemoLogs();
                 break;
 
             default:

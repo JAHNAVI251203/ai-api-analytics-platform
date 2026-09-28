@@ -1,7 +1,12 @@
 import { pool } from '../config/database';
 
+export type DataSource = 'live' | 'sample';
+
+export const normalizeDataSource = (value?: string): DataSource =>
+    value === 'sample' ? 'sample' : 'live';
+
 export class MetricsModel {
-    static async getOverallStats(timeRange: string = '1 hour') {
+    static async getOverallStats(timeRange: string = '1 hour', dataSource: DataSource = 'live') {
         const query = `
             SELECT 
                 COUNT(*) as total_requests,
@@ -12,12 +17,13 @@ export class MetricsModel {
                 COUNT(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 END) as success_count
             FROM api_logs
             WHERE timestamp >= NOW() - INTERVAL '${timeRange}'
+            AND data_source = '${dataSource}'
         `;
         const result = await pool.query(query);
         return result.rows[0];
     }
 
-    static async getEndpointStats(timeRange: string = '1 hour') {
+    static async getEndpointStats(timeRange: string = '1 hour', dataSource: DataSource = 'live') {
         const query = `
             SELECT 
                 endpoint,
@@ -27,6 +33,7 @@ export class MetricsModel {
                 COUNT(CASE WHEN status_code >= 400 THEN 1 END) as error_count
             FROM api_logs
             WHERE timestamp >= NOW() - INTERVAL '${timeRange}'
+            AND data_source = '${dataSource}'
             GROUP BY endpoint, method
             ORDER BY request_count DESC
             LIMIT 10
@@ -35,13 +42,14 @@ export class MetricsModel {
         return result.rows;
     }
 
-    static async getStatusCodeDistribution(timeRange: string = '1 hour') {
+    static async getStatusCodeDistribution(timeRange: string = '1 hour', dataSource: DataSource = 'live') {
         const query = `
             SELECT 
                 status_code,
                 COUNT(*) as count
             FROM api_logs
             WHERE timestamp >= NOW() - INTERVAL '${timeRange}'
+            AND data_source = '${dataSource}'
             GROUP BY status_code
             ORDER BY status_code
         `;
@@ -50,7 +58,7 @@ export class MetricsModel {
         return result.rows;
     }
 
-    static async getRecentErrors(timeRange: string = '24 hours') {
+    static async getRecentErrors(timeRange: string = '24 hours', dataSource: DataSource = 'live') {
         const query = `
             SELECT
                 endpoint,
@@ -61,6 +69,7 @@ export class MetricsModel {
             FROM api_logs
             WHERE status_code >= 400
             AND timestamp >= NOW() - INTERVAL '${timeRange}'
+            AND data_source = '${dataSource}'
             ORDER BY timestamp DESC
             LIMIT 100
         `;
@@ -69,10 +78,10 @@ export class MetricsModel {
         return result.rows;
     }
 
-    static async getAnomalyMetrics(timeRange: string = '1 hour') {
-        const stats = await this.getOverallStats(timeRange);
+    static async getAnomalyMetrics(timeRange: string = '1 hour', dataSource: DataSource = 'live') {
+        const stats = await this.getOverallStats(timeRange, dataSource);
 
-        const endpointStats = await this.getEndpointStats(timeRange);
+        const endpointStats = await this.getEndpointStats(timeRange, dataSource);
 
         return {
             ...stats,
@@ -85,7 +94,12 @@ export class MetricsModel {
         };
     }
 
-    static async searchEndpoints(search: string, timeRange: string = '7 days', statusFilter: string = 'all') {
+    static async searchEndpoints(
+        search: string,
+        timeRange: string = '7 days',
+        statusFilter: string = 'all',
+        dataSource: DataSource = 'live'
+    ) {
         let statusCondition = '';
 
         if (statusFilter === '2xx') {
@@ -115,6 +129,7 @@ export class MetricsModel {
         FROM api_logs
         WHERE endpoint ILIKE $1
         AND timestamp >= NOW() - INTERVAL '${timeRange}'
+        AND data_source = '${dataSource}'
         ${statusCondition}
         GROUP BY endpoint, method
         ORDER BY request_count DESC

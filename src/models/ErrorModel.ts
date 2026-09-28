@@ -1,5 +1,6 @@
 import { pool } from '../config/database';
 import crypto from 'crypto';
+import type { DataSource } from './MetricsModel';
 
 export class ErrorModel {
     static generateErrorHash(endpoint: string, statusCode: number, errorMessage: string): string {
@@ -30,10 +31,11 @@ export class ErrorModel {
         };
     }
 
-    static async getTopErrors(limit: number = 10) {
+    static async getTopErrors(limit: number = 10, dataSource: DataSource = 'live') {
         const query = `
             SELECT * FROM error_groups
             WHERE last_seen >= NOW() - INTERVAL '24 hours'
+            AND data_source = '${dataSource}'
             ORDER BY occurrence_count DESC
             LIMIT $1
         `;

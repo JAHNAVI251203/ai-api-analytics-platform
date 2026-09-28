@@ -5,6 +5,17 @@ export async function runMigrations() {
         console.log("Running database migrations...");
 
         await pool.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
+
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS api_logs (
                 id SERIAL PRIMARY KEY,
                 endpoint VARCHAR(255),
@@ -15,8 +26,20 @@ export async function runMigrations() {
                 request_body JSONB,
                 response_body JSONB,
                 user_agent TEXT,
-                ip_address VARCHAR(45)
+                ip_address VARCHAR(45),
+                data_source VARCHAR(20) NOT NULL DEFAULT 'live',
+                sample_key VARCHAR(64)
             );
+        `);
+
+        await pool.query(`
+            ALTER TABLE api_logs
+            ADD COLUMN IF NOT EXISTS data_source VARCHAR(20) NOT NULL DEFAULT 'live';
+        `);
+
+        await pool.query(`
+            ALTER TABLE api_logs
+            ADD COLUMN IF NOT EXISTS sample_key VARCHAR(64);
         `);
 
         await pool.query(`
@@ -28,8 +51,20 @@ export async function runMigrations() {
                 method VARCHAR(10),
                 first_seen TIMESTAMP DEFAULT NOW(),
                 last_seen TIMESTAMP DEFAULT NOW(),
-                occurrence_count INTEGER DEFAULT 1
+                occurrence_count INTEGER DEFAULT 1,
+                data_source VARCHAR(20) NOT NULL DEFAULT 'live',
+                sample_key VARCHAR(64)
             );
+        `);
+
+        await pool.query(`
+            ALTER TABLE error_groups
+            ADD COLUMN IF NOT EXISTS data_source VARCHAR(20) NOT NULL DEFAULT 'live';
+        `);
+
+        await pool.query(`
+            ALTER TABLE error_groups
+            ADD COLUMN IF NOT EXISTS sample_key VARCHAR(64);
         `);
 
         await pool.query(`
@@ -63,6 +98,18 @@ export async function runMigrations() {
         await pool.query(`
             CREATE INDEX IF NOT EXISTS idx_endpoint
             ON api_logs(endpoint);
+        `);
+
+        await pool.query(`
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_api_logs_sample_key
+            ON api_logs(sample_key)
+            WHERE sample_key IS NOT NULL;
+        `);
+
+        await pool.query(`
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_error_groups_sample_key
+            ON error_groups(sample_key)
+            WHERE sample_key IS NOT NULL;
         `);
 
         console.log("Database migrations completed");

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { MetricsModel } from '../models/MetricsModel';
+import { MetricsModel, normalizeDataSource } from '../models/MetricsModel';
 import { ErrorModel } from '../models/ErrorModel';
 import { AIService } from '../services/AIService';
 import { pool, redis } from '../config/database';
@@ -10,7 +10,8 @@ export class DashboardController {
     static async getDashboard(req: Request, res: Response) {
         try {
             const timeRange = req.query.timeRange as string || '1 hour';
-            const cacheKey = `dashboard:${timeRange}`;
+            const dataSource = normalizeDataSource(req.query.dataSource as string);
+            const cacheKey = `dashboard:${dataSource}:${timeRange}`;
 
             const cached = await redis.get(cacheKey);
             if (cached) {
@@ -29,11 +30,11 @@ export class DashboardController {
                 topErrors,
                 timeSeriesData
             ] = await Promise.all([
-                MetricsModel.getOverallStats(timeRange),
-                MetricsModel.getEndpointStats(timeRange),
-                MetricsModel.getStatusCodeDistribution(timeRange),
-                ErrorModel.getTopErrors(10),
-                DashboardController.getTimeSeriesData(timeRange)
+                MetricsModel.getOverallStats(timeRange, dataSource),
+                MetricsModel.getEndpointStats(timeRange, dataSource),
+                MetricsModel.getStatusCodeDistribution(timeRange, dataSource),
+                ErrorModel.getTopErrors(10, dataSource),
+                DashboardController.getTimeSeriesData(timeRange, dataSource)
             ]);
 
             //calculating derived metrics
@@ -47,7 +48,7 @@ export class DashboardController {
 
             //let aiSummary = null;
             let aiSummary = "AI summary unavailable";
-            const aiCacheKey = `ai:summary:${timeRange}`;
+            const aiCacheKey = `ai:summary:${dataSource}:${timeRange}`;
             const cachedAI = await redis.get(aiCacheKey);
 
             if (cachedAI) {
@@ -77,6 +78,7 @@ export class DashboardController {
                 topErrors: topErrors,
                 timeSeries: timeSeriesData,
                 aiSummary: aiSummary,
+                dataSource,
                 timestamp: new Date()
             };
 
@@ -97,7 +99,7 @@ export class DashboardController {
         }
     }
 
-    private static async getTimeSeriesData(timeRange: string) {
+    private static async getTimeSeriesData(timeRange: string, dataSource: 'live' | 'sample') {
         //data points for charts
         const query = `
             SELECT 
@@ -107,6 +109,7 @@ export class DashboardController {
                 COUNT(CASE WHEN status_code >= 400 THEN 1 END) as error_count
             FROM api_logs
             WHERE timestamp >= NOW() - INTERVAL '${timeRange}'
+            AND data_source = '${dataSource}'
             GROUP BY time_bucket
             ORDER BY time_bucket ASC
         `;
@@ -119,6 +122,7 @@ export class DashboardController {
         try {
             const { endpoint } = req.params;
             const timeRange = req.query.timeRange as string || '1 hour';
+            const dataSource = normalizeDataSource(req.query.dataSource as string);
 
             const query = `
                 SELECT 
@@ -133,6 +137,7 @@ export class DashboardController {
                 FROM api_logs
                 WHERE endpoint = $1 
                 AND timestamp >= NOW() - INTERVAL '${timeRange}'
+                AND data_source = '${dataSource}'
                 GROUP BY method
             `;
 
@@ -195,10 +200,13 @@ export class DashboardController {
             const statusFilter =
                 req.query.statusFilter as string || 'all';
 
+            const dataSource = normalizeDataSource(req.query.dataSource as string);
+
             const endpoints = await MetricsModel.searchEndpoints(
                     search,
                     timeRange,
-                    statusFilter
+                    statusFilter,
+                    dataSource
                 );
 
             res.json({
