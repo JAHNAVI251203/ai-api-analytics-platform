@@ -1,528 +1,131 @@
-# 🚀 API Sentinel - AI-Powered API Analytics & Monitoring Platform
+# API Sentinel
 
-A real-time API monitoring platform with AI-powered error analysis, anomaly detection, webhook alerting, background job processing, and live analytics visualization.
+Backend-focused API telemetry and analytics portfolio project.
 
----
+## Live Demo
 
-## 🌐 Live Demo
+- Not deployed yet.
+- Run the full local stack with Docker Compose.
 
-Frontend Dashboard:
-https://ai-api-analytics-dashboard.vercel.app
+## Features
 
-### Video Walkthrough:
-[![API Sentinel Demo](./assets/dashboard-preview.png)](https://drive.google.com/file/d/1UJP_wGTTDyGFtG5PTBl61dRddjT6NuwP/view?usp=sharing)
+- Real API telemetry ingestion through an API key.
+- PostgreSQL analytics, Redis caching, BullMQ background jobs, and Socket.IO updates.
+- Dashboard time ranges: last hour, 6 hours, 24 hours, and 7 days.
+- Error grouping, webhook alerts, and AI-assisted analysis.
+- No sample data, fabricated metrics, automated traffic, ClickCart integration, or Postman dependency.
 
-Backend:
-https://ai-api-analytics-platform-production.up.railway.app
-
-Bull Board:
-https://ai-api-analytics-platform-production.up.railway.app/admin/queues
-
-## ✨ Features
-
-### 📊 Analytics Dashboard
-- Real-time API monitoring
-- Request volume tracking
-- Response time analysis
-- Status code distribution
-- Error monitoring
-- Mobile-responsive UI
-
-### 🤖 AI-Powered Analysis
-- Gemini AI integration
-- Automatic error analysis
-- Root cause suggestions
-- Performance recommendations
-
-### ⚡ Real-Time Updates
-- Socket.io live dashboard updates
-- Instant metric refresh
-- Live activity feed
-
-### 🚨 Alerting System
-- Custom alert rules
-- Error rate monitoring
-- Latency monitoring
-- Webhook notifications
-- Configurable thresholds
-
-### 🔍 Data Exploration
-- Endpoint search
-- Status code filtering
-- Time range filtering
-- CSV export
-
-### ⚙️ Background Processing
-- BullMQ job queues
-- Scheduled jobs
-- Metrics aggregation
-- Queue monitoring with Bull Board
-
-### 🚀 Performance Optimization
-- Redis caching
-- BullMQ background jobs
-- PostgreSQL indexing
-- Automatic database migrations
-
-### 🚨 Monitoring
-- Error grouping
-- Anomaly detection
-- Historical trend analysis
-
-### 🐳 Production Ready
-- Dockerized backend
-- Railway deployment
-- Vercel deployment
-- Environment-based configuration
-
----
-
-# 🏗️ Architecture
+## Architecture
 
 ```text
-                    ┌─────────────────────┐
-                    │ React Dashboard     │
-                    │ (Vercel)            │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-
-                 ┌──────────────────────────┐
-                 │ Express Backend          │
-                 │ Node.js + TypeScript     │
-                 │ (Railway)                │
-                 └───────┬─────────┬────────┘
-                         │         │
-                         ▼         ▼
-
-                ┌────────────┐ ┌───────────┐
-                │ PostgreSQL │ │   Redis   │
-                │ Analytics  │ │ Cache/Jobs│
-                └────────────┘ └─────┬─────┘
-                                     │
-                                     ▼
-
-                            ┌────────────────┐
-                            │ BullMQ Queues  │
-                            └───────┬────────┘
-                                    │
-                     ┌──────────────┴──────────────┐
-                     ▼                             ▼
-
-             ┌─────────────┐             ┌──────────────┐
-             │ Bull Board  │             │ Gemini AI    │
-             │ Queue UI    │             │ Analysis     │
-             └─────────────┘             └──────────────┘
-```
-### Flow
-
-1. Logs are ingested through API endpoints
-2. PostgreSQL stores analytics data
-3. BullMQ processes background jobs
-4. Redis caches expensive operations
-5. Gemini AI analyzes errors
-6. Socket.io pushes live updates
-7. React dashboard visualizes metrics
----
-
-# 🛠 Tech Stack
-
-## Backend
-
-* Node.js
-* TypeScript
-* Express.js
-* PostgreSQL
-* Redis
-* BullMQ
-* Bull Board
-* Socket.io
-* Gemini AI & OpenRouter
-
-## Frontend
-
-* React
-* TypeScript
-* Axios
-* Recharts
-* Socket.io Client
-* React Toastify
-
-## Deployment
-
-* Railway
-* Vercel
-* Dockerized backend
-
----
-
-# 📦 Installation
-
-## Prerequisites
-
-* Node.js 18+
-* PostgreSQL 15+
-* Redis 7+
-* Gemini API Key
-* OpenRouter API Key
-
----
-
-## Quick Start
-
-### 1. Clone Repository
-
-```bash
-git clone <repository-url>
-cd api-analytics
+Manual Demo API request
+  -> POST /logs with API key
+  -> BullMQ telemetry queue
+  -> worker transaction
+  -> PostgreSQL
+  -> Redis cache invalidation and pub/sub
+  -> Socket.IO dashboard update
 ```
 
-### 2. Install Node.js Dependencies
+- A user creates requests through the Demo API browser page; it does not create traffic automatically.
+- `event_id` makes telemetry persistence idempotent during BullMQ retries.
+- The dashboard starts empty and shows only telemetry produced by actual Demo API requests.
 
-```bash
-npm install
-```
+## Tech Stack
 
-### 3. Configure Environment
+- Node.js, TypeScript, Express, React.
+- PostgreSQL, Redis, BullMQ, Bull Board, Socket.IO.
+- Docker Compose, Gemini, and OpenRouter.
 
-Create `.env`
+## Installation
 
-```env
-PORT=8000
+1. From `api-analytics`, copy `.env.example` to `.env`.
+2. Set `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, `INGESTION_API_KEY`, and `ADMIN_EMAIL`.
+3. Optionally set `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, and `WEBHOOK_ALLOWED_HOSTS`.
+4. Start the complete stack:
 
-DATABASE_URL=postgresql://username:password@localhost:5432/database_name
+   ```powershell
+   docker compose up --build
+   ```
 
-REDIS_URL=redis://localhost:6379
+5. Open the dashboard at `http://localhost:3000` and the Demo API at `http://localhost:3001`.
+6. Use the Demo API links or form to generate real telemetry.
+7. To intentionally clear legacy telemetry, error groups, and alert history:
 
-GEMINI_API_KEY=your_gemini_api_key_here
+   ```powershell
+   npm run reset:telemetry
+   ```
 
-OPENROUTER_API_KEY=your_openrouter_api_key_here
-```
+## API Documentation
 
-### 4. Run Backend
+- `POST /logs` accepts telemetry metadata with `X-API-Key` and returns `202 Accepted`.
+- `GET /dashboard?timeRange=1%20hour` returns dashboard analytics.
+- Valid time ranges are `1 hour`, `6 hours`, `24 hours`, and `7 days`.
+- Dashboard and analytics endpoints require a JWT.
+- Full endpoint details are in [`docs/API_DOCUMENTATION.md`](docs/API_DOCUMENTATION.md).
 
-```bash
-npm run dev
-```
+## Alerting System
 
-### 5. Run Frontend
+- Supports error-rate, latency, and traffic-spike rules.
+- Alert evaluation runs in BullMQ every two minutes.
+- Alert rules, Bull Board, and raw live telemetry require the configured `ADMIN_EMAIL` account.
+- Webhooks require an allowlisted public HTTPS hostname, reject redirects, and time out after ten seconds.
 
-```bash
-cd ../api-dashboard
+## AI Features
 
-npm install
+- AI error analysis and dashboard summaries run only in background workers.
+- Dashboard reads cached results or a pending response; they never wait for an AI provider.
+- Provider calls time out after eight seconds and use fallback behavior.
+- Anomaly detection reports `collecting_baseline` until seven days of real historical telemetry are available.
 
-npm start
-```
+## Background Processing
 
----
+- Telemetry jobs persist events, group errors, clear cache entries, and publish real-time updates.
+- Scheduled jobs calculate metrics, evaluate alerts, summarize all dashboard ranges, detect anomalies, and clean logs older than 30 days.
+- Bull Board is available at `http://localhost:8000/admin/queues` for the admin account.
 
-# 📚 API Documentation
+## Dashboard Features
 
-Detailed documentation available in:
+- Request count, latency, success rate, error rate, endpoint, status-code, and error-group views.
+- Time range selector for the last hour, 6 hours, 24 hours, and 7 days.
+- Real-time activity feed for the admin account through Socket.IO.
+- Endpoint search, status filtering, CSV export, and AI insights.
 
-```text
-docs/API_DOCUMENTATION.md
-```
+## Testing
 
----
-
-## Health Check
-
-```http
-GET /health
-```
-
-Returns application health status.
-
----
-
-## Dashboard Analytics
-
-```http
-GET /api/dashboard
-```
-
-Returns dashboard metrics and charts.
-
----
-
-## Log Ingestion
-
-```http
-POST /api/logs
-```
-
-Stores API request metrics.
-
-Example:
-
-```json
-{
-  "endpoint": "/users",
-  "method": "GET",
-  "statusCode": 200,
-  "responseTime": 120
-}
-```
-
----
-
-## AI Error Analysis
-
-```http
-POST /api/ai/analyze-errors
-```
-
-Generates AI-powered recommendations using Gemini.
-
----
-
-## Alert Rules
-
-```http
-POST /api/alerts/rules
-```
-
-Example:
-
-```json
-{
-  "name": "High Error Rate",
-  "condition_type": "error_rate",
-  "threshold": 5,
-  "time_window": "1 hour",
-  "webhook_url": "https://webhook.site/your-url"
-}
-```
-
----
-
-# 🚨 Alerting System
-
-The platform supports configurable alert rules.
-
-Supported Conditions:
-
-* Error Rate
-* Latency Threshold
-* Request Volume
-
-Features:
-
-* Webhook notifications
-* Alert history tracking
-* Configurable thresholds
-* Automatic evaluation through BullMQ jobs
-
----
-
-# 🤖 AI Features
-
-Gemini AI is used for:
-
-* Error analysis
-* Root cause identification
-* Performance recommendations
-* Operational insights
-
-Responses are cached using Redis to reduce API cost and improve performance.
-
----
-
-# ⚙️ Background Processing
-
-BullMQ handles:
-
-* Metrics aggregation
-* Alert evaluation
-* Anomaly detection
-* Scheduled maintenance tasks
-
-Sample telemetry is not a BullMQ job. Set `ENABLE_SAMPLE_DATA=true` to create
-or refresh the same labeled sample records at startup without duplicating them.
-Set it to `false` for a live-only environment.
-
-### Authentication
-
-Create an account or sign in through the dashboard. The backend stores only
-bcrypt password hashes and returns a JWT for protected API and Socket.IO access.
-Set `JWT_SECRET` in the backend environment. End users never receive direct
-database credentials.
-
-Bull Board provides:
-
-* Queue monitoring
-* Job inspection
-* Failure tracking
-* Retry management
-
----
-
-# 📊 Dashboard Features
-
-* Request volume charts
-* Response time analytics
-* Status code distribution
-* Top error analysis
-* Real-time activity feed
-* Endpoint search
-* Status code filters
-* Time-range selection
-* Live/sample data selection
-* CSV export
-* Toast notifications
-
----
-
-# 🧪 Testing
-
-### Rate Limiter Test
-
-```bash
+```powershell
+npm run build
+npm run test:webhook-policy
+npm run test:admin-auth
+npm run test:integration
 npm run test:rate
 ```
 
-Tests API rate-limiting functionality.
+- Run `npm run test:integration` against a running API with `INGESTION_API_KEY` set.
+- Build the frontend separately from `api-dashboard` with `npm run build`.
 
----
+## Deployment
 
-### AI Integration Test
+- Run the API and worker as separate services with the same PostgreSQL and Redis instances.
+- Keep PostgreSQL and Redis private; expose only the API and dashboard.
+- Store secrets in the deployment platform’s secret manager.
+- Use managed PostgreSQL and Redis, private networking, a load balancer, and centralized logs when deploying to AWS.
 
-```bash
-npm run test:ai
-```
+## Monitoring
 
-Tests Gemini AI integration and response generation.
+- `GET /health` verifies PostgreSQL and Redis connectivity.
+- Bull Board exposes telemetry and scheduled-job state.
+- Redis caches short-lived dashboard data and carries worker-to-API real-time events.
+- PostgreSQL is the durable telemetry source of truth.
 
----
+## Documentation
 
-### Integration Test
+- [Architecture](docs/ARCHITECTURE.md)
+- [Database schema](docs/DATABASE_SCHEMA.md)
+- [API documentation](docs/API_DOCUMENTATION.md)
+- [Deployment guide](docs/DEPLOYMENT.md)
 
-```bash
-npm run test:integration
-```
+## Author
 
-Tests end-to-end API functionality and service interactions.
-
----
-
-### Load Testing
-
-```bash
-npm run load-test
-```
-
-Simulates API traffic to evaluate performance under load.
-
----
-
-### Seed Sample Data
-
-```bash
-npm run seed
-```
-
-Populates PostgreSQL with sample API logs for dashboard testing.
-
-### Verify Sample Data
-
-```bash
-npm run test:sample
-```
-
-Runs the sample bootstrap twice and verifies that it creates rows without
-duplicating them.
-
----
-
-# 🚀 Deployment
-
-## Backend
-
-Platform: Railway
-
-```bash
-docker build -t api-analytics .
-```
-
-Features:
-
-* Dockerized deployment
-* PostgreSQL integration
-* Redis integration
-* Automatic migrations
-
----
-
-## Frontend
-
-Platform: Vercel
-
-```bash
-npm run build
-```
-
-Automatic deployment through GitHub integration.
-
----
-
-# 📈 Monitoring
-
-Health Check:
-
-```http
-GET /health
-```
-
-Bull Board Dashboard:
-
-```http
-/admin/queues
-```
-
-Provides:
-
-* Queue status
-* Completed jobs
-* Failed jobs
-* Active jobs
-* Job history
-
----
-
-# 📖 Documentation
-
-Additional documentation:
-
-```text
-docs/
-├── ARCHITECTURE.md
-├── DATABASE_SCHEMA.md
-├── API_DOCUMENTATION.md
-└── DEPLOYMENT.md
-```
-
-Postman Collection:
-
-```text
-postman_collection.json
-```
-
----
-
-# 🔮 Future Improvements
-
-* Email notifications
-* Slack integration
-* Multi-project support
-* Role-based access control
-* Advanced machine learning anomaly detection
-
----
-
-# 👩‍💻 Author
-
-Jahnavi Satish
-
-Built as a production-style full-stack monitoring platform to demonstrate backend engineering, real-time systems, AI integration, cloud deployment, and distributed job processing.
+- Jahnavi Satish
+- Built to demonstrate practical backend engineering, real-time systems, PostgreSQL, Redis, BullMQ, AI analytics, Docker, and future AWS operations.

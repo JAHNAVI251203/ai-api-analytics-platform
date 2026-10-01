@@ -14,13 +14,6 @@ export class RealtimeService {
         });
     }
     
-    emitMetricsUpdate(metrics: any) {
-        this.io.to('metrics').emit('metrics-update', {
-            timestamp: new Date(),
-            metrics
-        });
-    }
-    
     emitErrorAlert(error: any) {
         this.io.to('alerts').emit('error-alert', {
             timestamp: new Date(),
@@ -29,10 +22,4 @@ export class RealtimeService {
         });
     }
     
-    emitAnomaly(anomaly: any) {
-        this.io.to('alerts').emit('anomaly-detected', {
-            timestamp: new Date(),
-            anomaly
-        });
-    }
 }

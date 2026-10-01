@@ -1,70 +1,28 @@
 import { Request, Response } from 'express';
-import { MetricsModel, normalizeDataSource } from '../models/MetricsModel';
-import { redis } from '../config/database';
+import { MetricsModel, normalizeTimeRange } from '../models/MetricsModel';
 import { ErrorModel } from '../models/ErrorModel';
-import { metricsQueue } from '../jobs/metricsCalculator';
+import { redis } from '../config/database';
 
 export class MetricsController {
     static async getMetrics(req: Request, res: Response) {
         try {
-            const timeRange = req.query.timeRange as string || '1 hour';
-            const dataSource = normalizeDataSource(req.query.dataSource as string);
-            const cacheKey = `metrics:${dataSource}:${timeRange}`;//checking cached data first
-            const cached = await redis.get(cacheKey);
-
-            if (cached) {
-                return res.json({ success: true, data: JSON.parse(cached), cached: true });
-            }
-
-            //calculating metrics
-            const [overallStats, endpointStats, statusDistribution] = await Promise.all([
-                MetricsModel.getOverallStats(timeRange, dataSource),
-                MetricsModel.getEndpointStats(timeRange, dataSource),
-                MetricsModel.getStatusCodeDistribution(timeRange, dataSource)
+            const timeRange = normalizeTimeRange(req.query.timeRange as string);
+            const key = `metrics:${timeRange}`;
+            const cached = await redis.get(key);
+            if (cached) return res.json({ success: true, data: JSON.parse(cached), cached: true });
+            const [overall, endpoints, statusCodes] = await Promise.all([
+                MetricsModel.getOverallStats(timeRange), MetricsModel.getEndpointStats(timeRange), MetricsModel.getStatusCodeDistribution(timeRange)
             ]);
-
-            const metrics = {
-                overall: overallStats,
-                endpoints: endpointStats,
-                statusCodes: statusDistribution,
-                timestamp: new Date()
-            };
-
-            //cache for 30 seconds
-            await redis.setex(cacheKey, 30, JSON.stringify(metrics));
-
-            res.json({
-                success: true,
-                data: metrics,
-                cached: false
-            });
-        } catch (error) {
-            console.error('Error fetching metrics:', error);
-            res.status(500).json({
-                success: false,
-                error: 'Failed to fetch metrics'
-            });
-        }
+            const data = { overall, endpoints, statusCodes };
+            await redis.setex(key, 60, JSON.stringify(data));
+            res.json({ success: true, data, cached: false });
+        } catch { res.status(500).json({ success: false, error: 'Failed to fetch metrics' }); }
     }
 
-    static async getTopErrors(req: Request, res: Response) {
+    static async getErrors(req: Request, res: Response) {
         try {
-            const limit = parseInt(req.query.limit as string) || 10;
-            const dataSource = normalizeDataSource(req.query.dataSource as string);
-            const errors = await ErrorModel.getTopErrors(limit, dataSource);
-            res.json({ success: true, data: errors });
-        } catch (error) {
-            console.error('Error fetching top errors:', error);
-            res.status(500).json({ success: false, error: 'Failed to fetch errors' });
-        }
+            const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100);
+            res.json({ success: true, data: await ErrorModel.getTopErrors(limit) });
+        } catch { res.status(500).json({ success: false, error: 'Failed to fetch errors' }); }
     }
-
-    static async triggerMetricsCalculation(req: Request, res: Response) {
-    const job = await metricsQueue.add('calculate-hourly-metrics', {});
-    res.json({ 
-        success: true, 
-        message: 'Job queued',
-        jobId: job.id 
-    });
-}
 }

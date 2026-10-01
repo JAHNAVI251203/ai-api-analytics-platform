@@ -1,49 +1,14 @@
-# System Architecture
+# Architecture
 
-## Database Schema
+```text
+Browser -> Demo API -> POST /logs (API key) -> BullMQ
+                                             -> worker -> PostgreSQL
+                                                       -> Redis invalidation + pub/sub
+                                                       -> Socket.IO -> admin dashboard
+```
 
-### api_logs
-- Primary table for storing API request logs
-- Indexed on timestamp and endpoint
-- JSONB columns for flexible request/response storage
+The request path ends after the ingestion service queues the event. The worker owns durable writes and retries. `api_logs.event_id` is unique, so a retried BullMQ job cannot duplicate a log; error-group updates share the same PostgreSQL transaction.
 
-### error_groups
-- Groups similar errors using MD5 hash
-- Tracks occurrence count and timestamps
-- Enables efficient error analysis
+Redis holds short-lived dashboard/metrics cache entries and transports published telemetry from the worker to the API process. The worker also owns scheduled analytics, alert evaluation, and AI jobs. AI output is cached for dashboard reads and has a provider timeout/fallback.
 
-### alert_rules
-- Configurable alerting system
-- Supports multiple condition types
-- Webhook-based notifications
-
-## Background Jobs
-
-1. **Metrics Calculation** (Every 5 min)
-   - Aggregates statistics
-   - Caches results in Redis
-
-2. **Anomaly Detection** (Every 10 min)
-   - AI-powered analysis
-   - Compares against baseline
-
-3. **Cleanup** (Daily at 2 AM)
-   - Removes logs >30 days old
-
-## Sample Telemetry
-
-When `ENABLE_SAMPLE_DATA=true`, startup upserts a fixed labeled sample dataset.
-It is separate from the scheduled-job system and never generates random traffic.
-
-## Caching Strategy
-
-- Metrics: 30-60 second TTL
-- AI Analysis: 5-10 minute TTL
-- Dashboard: 1 minute TTL
-
-## Performance Considerations
-
-- Connection pooling for PostgreSQL
-- Redis for hot data
-- Indexes on frequently queried columns
-- Background job processing for heavy operations
+The only proof client is the manual Demo API. No sample rows, polling jobs, or synthetic load generators exist.

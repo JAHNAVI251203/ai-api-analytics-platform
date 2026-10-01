@@ -7,7 +7,6 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import { runMigrations } from "./migrations/init";
-import { ensureSampleData } from './services/SampleDataService';
 
 import logRoutes from './routes/logRoutes';
 import metricsRoutes from './routes/metricsRoutes';
@@ -15,12 +14,12 @@ import aiRoutes from './routes/aiRoutes';
 import alertRoutes from './routes/alertRoutes';
 import dashboardRoutes from './routes/dashboardRoutes';
 import authRoutes from './routes/authRoutes';
-import { authenticateJwt, verifyJwt } from './middleware/auth';
+import { authenticateJwt, isAdminEmail, isTokenRevoked, requireAdmin, verifyJwt } from './middleware/auth';
 
-import { generalLimiter, logIngestionLimiter } from './middleware/rateLimiter';
+import { generalLimiter, loginLimiter, logIngestionLimiter } from './middleware/rateLimiter';
 
-import { setupScheduledJobs } from './jobs/scheduler';
 import { metricsQueue } from './jobs/metricsCalculator';
+import { telemetryQueue } from './jobs/telemetryQueue';
 
 import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
@@ -31,21 +30,31 @@ import { redis, pool } from './config/database';
 const app = express();
 app.set("trust proxy", 1);
 const httpServer = createServer(app);
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
 const io = new Server(httpServer, {
     cors: {
-        origin: "*", 
+        origin: allowedOrigins,
         methods: ["GET", "POST"]
-    }
+    },
+    allowRequest: (req, callback) =>
+        callback(null, !req.headers.origin || allowedOrigins.includes(req.headers.origin))
 });
 
-io.use((socket, next) => {
+io.use(async (socket, next) => {
     const token = socket.handshake.auth?.token;
     if (typeof token !== 'string') {
         return next(new Error('Authentication required'));
     }
 
     try {
-        socket.data.user = verifyJwt(token);
+        const auth = verifyJwt(token);
+        if (await isTokenRevoked(auth)) {
+            return next(new Error('Invalid or expired token'));
+        }
+        socket.data.user = auth;
         next();
     } catch {
         next(new Error('Invalid or expired token'));
@@ -53,7 +62,7 @@ io.use((socket, next) => {
 });
 
 app.use(express.json());
-app.use(cors());
+app.use(cors({ origin: allowedOrigins }));
 
 io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
@@ -63,8 +72,9 @@ io.on('connection', (socket) => {
     });
     
     socket.on('subscribe', (channel) => {
-        socket.join(channel);
-        console.log(`Socket ${socket.id} subscribed to ${channel}`);
+        if ((channel === 'logs' || channel === 'alerts') && isAdminEmail(socket.data.user.email)) {
+            socket.join(channel);
+        }
     });
 });
 
@@ -72,22 +82,38 @@ app.set('io', io);
 
 const serverAdapter = new ExpressAdapter();
 createBullBoard({
-    queues: [new BullMQAdapter(metricsQueue)],
+    queues: [new BullMQAdapter(metricsQueue), new BullMQAdapter(telemetryQueue)],
     serverAdapter
 });
 
 serverAdapter.setBasePath('/admin/queues');
-app.use('/admin/queues', authenticateJwt, serverAdapter.getRouter());
+app.use('/admin/queues', authenticateJwt, requireAdmin, serverAdapter.getRouter());
 
-app.use('/api', generalLimiter);
-app.use('/api/auth', authRoutes);
-app.use('/api', authenticateJwt);
-app.use('/api/logs', logIngestionLimiter);
-app.use('/api', logRoutes);
-app.use('/api', metricsRoutes);
-app.use("/api/ai", aiRoutes);
-app.use("/api/alerts", alertRoutes);
-app.use("/api/dashboard", dashboardRoutes);
+const apiPaths = ['/auth', '/logs', '/metrics', '/errors', '/ai', '/alerts', '/dashboard'];
+const protectedApiPaths = ['/metrics', '/errors', '/ai', '/dashboard'];
+
+app.use(apiPaths, generalLimiter);
+app.use('/auth/login', loginLimiter);
+app.use('/auth', authRoutes);
+app.use(protectedApiPaths, authenticateJwt);
+app.use('/logs', logIngestionLimiter);
+app.use('/', logRoutes);
+app.use('/', metricsRoutes);
+app.use("/ai", aiRoutes);
+app.use("/alerts", authenticateJwt, requireAdmin, alertRoutes);
+app.use("/dashboard", dashboardRoutes);
+
+const realtimeSubscriber = redis.duplicate();
+void realtimeSubscriber.subscribe('realtime:telemetry');
+realtimeSubscriber.on('message', (_channel, message) => {
+    try {
+        const { log, error } = JSON.parse(message) as { log: unknown; error: unknown };
+        io.to('logs').emit('new-log', { timestamp: new Date(), log });
+        if (error) io.to('alerts').emit('error-alert', { timestamp: new Date(), error });
+    } catch {
+        console.error('Invalid realtime telemetry event');
+    }
+});
 
 /*app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date() });
@@ -103,22 +129,27 @@ app.get('/health', async (req, res) => {
             uptime: process.uptime()
         });
     } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
+        console.error('Health check failed:', error);
         res.status(503).json({ 
-            status: 'unhealthy', 
-            error: message 
+            status: 'unhealthy'
         });
     }
 });
 
 const PORT = process.env.PORT || 8000;
-httpServer.listen(PORT, async () => {
-    await runMigrations();
-    if (process.env.ENABLE_SAMPLE_DATA === 'true') {
-        await ensureSampleData();
+
+const start = async () => {
+    try {
+        await runMigrations();
+        httpServer.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+        });
+    } catch (error) {
+        console.error('Server startup failed:', error);
+        process.exit(1);
     }
-    console.log(`Server running on port ${PORT}`);
-    await setupScheduledJobs();
-});
+};
+
+void start();
 
 export { io };

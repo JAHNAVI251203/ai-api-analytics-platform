@@ -1,171 +1,26 @@
-import { Request, Response } from "express";
-import { AIService } from "../services/AIService";
-import { CostTracker } from "../services/CostTracker";
-import { redis } from "../config/database";
-import { MetricsModel, normalizeDataSource } from "../models/MetricsModel";
+import { Request, Response } from 'express';
+import { redis } from '../config/database';
 
 export class AIController {
-  //POST /api/ai/analyze-errors ; cached for 5 mins
-  static async analyzeErrors(req: Request, res: Response) {
-    try {
-      //check cache first(AI calls are expensive)
-      const dataSource = normalizeDataSource(req.query.dataSource as string);
-      const cacheKey = `ai:error-analysis:${dataSource}`;
-      const cached = await redis.get(cacheKey);
-
-      if (cached) {
-        console.log("Cache hit: error analysis");
-        return res.json({
-          success: true,
-          data: JSON.parse(cached),
-          cached: true,
-        });
-      }
-
-      //get top errors from last 24 hours
-      const errors = await MetricsModel.getRecentErrors('24 hours', dataSource);
-      //const errors = await (req.body.errors || []);
-
-      if (errors.length === 0) {
-        return res.json({
-          success: true,
-          data: { message: "No errors to analyze" },
-        });
-      }
-
-      console.log("Analyzing errors with AI...");
-      const analysis = await AIService.analyzeErrors(errors);
-
-      //5 minutes = 300 seconds
-      await redis.setex(cacheKey, 300, JSON.stringify(analysis));
-
-      CostTracker.logAPICost(analysis.length || 200, "openai/gpt-oss-120b:free");//cost estimation based on token count
-
-      res.json({
-        success: true,
-        data: analysis,
-        analyzedErrorCount: errors.length,
-        cached: false,
-      });
-    } catch (error) {
-      console.error("Error in analyzeErrors:", error);
-
-      return res.json({
-        success: true,
-        data: {
-          rootCause: "AI Service Unavailable",
-          severity: "medium",
-          suggestedFix:
-            "Gemini/OpenRouter quota exhausted. Dashboard analytics continue to function normally.",
-          affectedEndpoints: [],
-        },
-        fallback: true,
-      });
+    static async analyzeErrors(_req: Request, res: Response) {
+        try {
+            const cached = await redis.get('ai:error-analysis');
+            return res.json(cached
+                ? { success: true, data: JSON.parse(cached), cached: true }
+                : { success: true, data: { message: 'AI analysis is being prepared in the background.' }, pending: true });
+        } catch {
+            return res.json({ success: true, data: { message: 'AI analysis is temporarily unavailable.' }, fallback: true });
+        }
     }
-  }
 
-  //POST /api/ai/detect-anomalies ; cached for 2 mins
-  static async detectAnomalies(req: Request, res: Response) {
-    let metricsWithContext: any = { error_count: 0 };
-
-    try {
-      const dataSource = normalizeDataSource(req.query.dataSource as string);
-      const cacheKey = `ai:anomaly-detection:${dataSource}`;
-      const cached = await redis.get(cacheKey);
-
-      if (cached) {
-        console.log("Cache hit: anomaly detection");
-        return res.json({
-          success: true,
-          data: JSON.parse(cached),
-          cached: true,
-        });
-      }
-
-      metricsWithContext = await MetricsModel.getAnomalyMetrics("1 hour", dataSource);
-
-      console.log("Detecting anomalies with AI...");
-      const anomalies = await AIService.detectAnomalies(metricsWithContext);
-
-      await redis.setex(cacheKey, 120, JSON.stringify(anomalies));
-
-      CostTracker.logAPICost(300, "gpt-3.5-turbo");
-
-      res.json({
-        success: true,
-        data: anomalies,
-        cached: false,
-      });
-    } catch (error) {
-      console.error("Error in detectAnomalies:", error);
-      return res.json({
-        success: true,
-        data: {
-          hasAnomaly: metricsWithContext.error_count > 10,
-          anomalyType: metricsWithContext.error_count > 10 ? "error_spike" : "none",
-          severity: metricsWithContext.error_count > 10 ? "medium" : "low",
-          explanation: `Detected ${metricsWithContext.error_count} errors in the last hour.`,
-          recommendation: "Review recent API failures.",
-        },
-        fallback: true,
-      });
+    static async detectAnomalies(_req: Request, res: Response) {
+        try {
+            const cached = await redis.get('ai:anomaly-detection');
+            return res.json(cached
+                ? { success: true, data: JSON.parse(cached), cached: true }
+                : { success: true, data: { hasAnomaly: false, anomalyType: 'collecting_baseline', severity: 'low', explanation: 'Collecting seven days of real telemetry for a baseline.', recommendation: 'Keep sending real API requests.' }, pending: true });
+        } catch {
+            return res.json({ success: true, data: { hasAnomaly: false, anomalyType: 'none', severity: 'low', explanation: 'Anomaly analysis is temporarily unavailable.', recommendation: 'Review current metrics.' }, fallback: true });
+        }
     }
-  }
-
-  // POST /api/ai/summarize-logs ; cached for 2 mins
-  static async summarizeLogs(req: Request, res: Response) {
-    try {
-      const cacheKey = "ai:log-summary";
-      const cached = await redis.get(cacheKey);
-
-      if (cached) {
-        console.log("Cache hit: log summary");
-        return res.json({
-          success: true,
-          data: { summary: cached },
-          cached: true,
-        });
-      }
-
-      const logs = req.body.logs || [];
-
-      if (logs.length === 0) {
-        return res.json({
-          success: true,
-          data: { summary: "No logs to summarize" },
-        });
-      }
-
-      console.log("Summarizing logs with AI...");
-      const summary = await AIService.summarizeLogs(logs);
-
-      const safeSummary =
-        typeof summary === "string" && summary.trim().length > 0
-          ? summary
-          : "AI summary unavailable for this time range.";
-
-      await redis.setex(cacheKey, 120, safeSummary);
-
-      CostTracker.logAPICost(150, "openai/gpt-oss-120b:free");
-
-      res.json({
-        success: true,
-        data: { summary: safeSummary },
-        logCount: logs.length,
-        cached: false,
-      });
-    } catch (error) {
-      console.error("Error in summarizeLogs:", error);
-
-      return res.json({
-        success: true,
-        data: {
-          summary:
-            "AI log summarization unavailable. Displaying raw logs instead."
-        },
-        fallback: true,
-      });
-    }
-  }
-
 }

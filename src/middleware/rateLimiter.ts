@@ -27,23 +27,24 @@ export const logIngestionLimiter = rateLimit({
         sendCommand: async (...args: string[]) => {
             return redis.call(args[0]!, ...args.slice(1)) as Promise<any>;
         },
-        prefix: 'rl:logs:',
+    prefix: 'rl:logs:',
     }),
+    keyGenerator: (req) => req.header('x-api-key') || req.ip || 'unknown',
     message: 'Log ingestion rate limit exceeded.'
 });
 
-//API key based rate limiting 
-export const createApiKeyLimiter = (requestsPerMinute: number) => {
-    return rateLimit({
-        windowMs: 60 * 1000,
-        max: requestsPerMinute,
-        keyGenerator: (req) => req.headers['x-api-key'] as string || req.ip || 'unknown',
+export const loginLimiter = rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 5,
+        keyGenerator: (req) =>
+            typeof req.body?.email === 'string'
+                ? req.body.email.trim().toLowerCase()
+                : 'invalid-login',
         store: new RedisStore({
-            //client: redis,
             sendCommand: async (...args: string[]) => {
                 return redis.call(args[0]!, ...args.slice(1)) as Promise<any>;
             },
-            prefix: 'rl:apikey:',
+            prefix: 'rl:login:',
         }),
+        message: { success: false, error: 'Too many sign-in attempts. Please try again later.' }
     });
-};

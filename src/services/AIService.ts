@@ -5,8 +5,18 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
 export class AIService {
+  private static async fetchWithTimeout(url: string, init: RequestInit) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    try {
+      return await fetch(url, { ...init, signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   private static async callGemini(prompt: string): Promise<string> {
-    const response = await fetch(
+    const response = await this.fetchWithTimeout(
       `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
@@ -41,7 +51,7 @@ export class AIService {
     maxTokens: number = 500,
     model: string = "openai/gpt-3.5-turbo"
   ): Promise<string> {
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await this.fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENROUTER_API_KEY}`,
@@ -64,8 +74,6 @@ export class AIService {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.log("STATUS:", response.status);
-      console.log("BODY:", errorText);
       throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
     }
 
@@ -157,7 +165,7 @@ export class AIService {
     }
   }
 
-  static async detectAnomalies(metrics: any): Promise<any> {
+  static async detectAnomalies(metrics: any, baseline: any): Promise<any> {
     const prompt = `
       You are an experienced Site Reliability Engineer (SRE).
 
@@ -177,10 +185,10 @@ export class AIService {
       - Error Rate: ${((metrics.error_count / Math.max(metrics.total_requests, 1)) * 100).toFixed(2)}%
       - Slowest Endpoint: ${metrics.slowest_endpoint}
 
-      Historical Baseline (Demo Environment):
-      - Typical Requests/Hour: 15-30
-      - Average Response Time: 150 ms
-      - Average Error Rate: 5-10%
+      Historical Baseline (last seven days, excluding the current hour):
+      - Typical Requests per Hour: ${baseline.requests_per_hour}
+      - Average Response Time: ${baseline.avg_response_time} ms
+      - Average Error Rate: ${baseline.error_rate}%
 
       Return ONLY valid JSON.
 
@@ -238,6 +246,3 @@ export class AIService {
     }
   }
 }
-
-console.log("Gemini Key:", GEMINI_API_KEY ? "Configured" : "Missing");
-console.log("OpenRouter Key:", OPENROUTER_API_KEY ? "Configured" : "Missing");

@@ -1,226 +1,63 @@
 import { Request, Response } from 'express';
-import { MetricsModel, normalizeDataSource } from '../models/MetricsModel';
+import { MetricsModel, normalizeTimeRange } from '../models/MetricsModel';
 import { ErrorModel } from '../models/ErrorModel';
-import { AIService } from '../services/AIService';
 import { pool, redis } from '../config/database';
-import { metricsQueue } from '../jobs/metricsCalculator';
-
 
 export class DashboardController {
     static async getDashboard(req: Request, res: Response) {
         try {
-            const timeRange = req.query.timeRange as string || '1 hour';
-            const dataSource = normalizeDataSource(req.query.dataSource as string);
-            const cacheKey = `dashboard:${dataSource}:${timeRange}`;
-
+            const timeRange = normalizeTimeRange(req.query.timeRange as string);
+            const cacheKey = `dashboard:${timeRange}`;
             const cached = await redis.get(cacheKey);
-            if (cached) {
-                return res.json({
-                    success: true,
-                    data: JSON.parse(cached),
-                    cached: true
-                });
-            }
-
-            //fetching all dashboard data in parallel
-            const [
-                overallStats,
-                endpointStats,
-                statusDistribution,
-                topErrors,
-                timeSeriesData
-            ] = await Promise.all([
-                MetricsModel.getOverallStats(timeRange, dataSource),
-                MetricsModel.getEndpointStats(timeRange, dataSource),
-                MetricsModel.getStatusCodeDistribution(timeRange, dataSource),
-                ErrorModel.getTopErrors(10, dataSource),
-                DashboardController.getTimeSeriesData(timeRange, dataSource)
+            if (cached) return res.json({ success: true, data: JSON.parse(cached), cached: true });
+            const [overallStats, endpoints, statusCodes, topErrors, timeSeries] = await Promise.all([
+                MetricsModel.getOverallStats(timeRange), MetricsModel.getEndpointStats(timeRange), MetricsModel.getStatusCodeDistribution(timeRange),
+                ErrorModel.getTopErrors(), DashboardController.getTimeSeriesData(timeRange)
             ]);
-
-            //calculating derived metrics
-            const errorRate = overallStats.total_requests > 0
-                ? (overallStats.error_count / overallStats.total_requests * 100).toFixed(2)
-                : 0;
-
-            const successRate = overallStats.total_requests > 0
-                ? (overallStats.success_count / overallStats.total_requests * 100).toFixed(2)
-                : 0;
-
-            //let aiSummary = null;
-            let aiSummary = "AI summary unavailable";
-            const aiCacheKey = `ai:summary:${dataSource}:${timeRange}`;
-            const cachedAI = await redis.get(aiCacheKey);
-
-            if (cachedAI) {
-                aiSummary = JSON.parse(cachedAI);
-            } else {
-                try {
-                    aiSummary = await AIService.summarizeLogs(endpointStats);
-                    await redis.setex(aiCacheKey, 600, JSON.stringify(aiSummary));//600 secs = 10 mins
-                } catch (error) {
-                    console.error('AI summary failed:', error);
-                }
-            }
-
+            const total = Number(overallStats.total_requests);
             const dashboard = {
                 overview: {
-                    totalRequests: overallStats.total_requests,
-                    avgResponseTime: Math.round(overallStats.avg_response_time),
-                    maxResponseTime: overallStats.max_response_time,
-                    minResponseTime: overallStats.min_response_time,
-                    errorCount: overallStats.error_count,
-                    successCount: overallStats.success_count,
-                    errorRate: errorRate,
-                    successRate: successRate
-                },
-                endpoints: endpointStats,
-                statusCodes: statusDistribution,
-                topErrors: topErrors,
-                timeSeries: timeSeriesData,
-                aiSummary: aiSummary,
-                dataSource,
-                timestamp: new Date()
+                    totalRequests: overallStats.total_requests, avgResponseTime: Math.round(Number(overallStats.avg_response_time) || 0),
+                    maxResponseTime: overallStats.max_response_time, minResponseTime: overallStats.min_response_time,
+                    errorCount: overallStats.error_count, successCount: overallStats.success_count,
+                    errorRate: total ? ((Number(overallStats.error_count) / total) * 100).toFixed(2) : 0,
+                    successRate: total ? ((Number(overallStats.success_count) / total) * 100).toFixed(2) : 0
+                }, endpoints, statusCodes, topErrors, timeSeries,
+                aiSummary: JSON.parse((await redis.get(`ai:summary:${timeRange}`)) || '"AI summary is being prepared in the background."'), timestamp: new Date()
             };
-
             await redis.setex(cacheKey, 60, JSON.stringify(dashboard));
-
-            res.json({
-                success: true,
-                data: dashboard,
-                cached: false
-            });
-
+            res.json({ success: true, data: dashboard, cached: false });
         } catch (error) {
             console.error('Dashboard error:', error);
-            res.status(500).json({
-                success: false,
-                error: 'Failed to fetch dashboard data'
-            });
+            res.status(500).json({ success: false, error: 'Failed to fetch dashboard data' });
         }
     }
 
-    private static async getTimeSeriesData(timeRange: string, dataSource: 'live' | 'sample') {
-        //data points for charts
-        const query = `
-            SELECT 
-                date_trunc('minute', timestamp) as time_bucket,
-                COUNT(*) as request_count,
-                AVG(response_time) as avg_response_time,
-                COUNT(CASE WHEN status_code >= 400 THEN 1 END) as error_count
-            FROM api_logs
-            WHERE timestamp >= NOW() - INTERVAL '${timeRange}'
-            AND data_source = '${dataSource}'
-            GROUP BY time_bucket
-            ORDER BY time_bucket ASC
-        `;
-
-        const result = await pool.query(query);
+    private static async getTimeSeriesData(timeRange: string) {
+        const result = await pool.query(`SELECT date_trunc('minute', timestamp) AS time_bucket, COUNT(*) AS request_count,
+            AVG(response_time) AS avg_response_time, COUNT(*) FILTER (WHERE status_code >= 400) AS error_count
+            FROM api_logs WHERE timestamp >= NOW() - $1::interval GROUP BY time_bucket ORDER BY time_bucket`, [normalizeTimeRange(timeRange)]);
         return result.rows;
     }
 
     static async getEndpointDetails(req: Request, res: Response) {
         try {
-            const { endpoint } = req.params;
-            const timeRange = req.query.timeRange as string || '1 hour';
-            const dataSource = normalizeDataSource(req.query.dataSource as string);
-
-            const query = `
-                SELECT 
-                    method,
-                    COUNT(*) as total_requests,
-                    AVG(response_time) as avg_response_time,
-                    MIN(response_time) as min_response_time,
-                    MAX(response_time) as max_response_time,
-                    PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY response_time) as p95_response_time,
-                    PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY response_time) as p99_response_time,
-                    COUNT(CASE WHEN status_code >= 400 THEN 1 END) as error_count
-                FROM api_logs
-                WHERE endpoint = $1 
-                AND timestamp >= NOW() - INTERVAL '${timeRange}'
-                AND data_source = '${dataSource}'
-                GROUP BY method
-            `;
-
-            const result = await pool.query(query, [endpoint]);
-
-            res.json({
-                success: true,
-                data: {
-                    endpoint,
-                    stats: result.rows
-                }
-            });
-
-        } catch (error) {
-            console.error('Endpoint details error:', error);
-            res.status(500).json({
-                success: false,
-                error: 'Failed to fetch endpoint details'
-            });
-        }
-    }
-
-    static async getSystemHealth(req: Request, res: Response) {
-        try {
-            const dbCheck = await pool.query('SELECT NOW()');
-
-            await redis.ping();
-
-            const queueHealth = await metricsQueue.getJobCounts();
-
-            res.json({
-                success: true,
-                data: {
-                    status: 'healthy',
-                    timestamp: new Date(),
-                    services: {
-                        database: 'up',
-                        redis: 'up',
-                        queue: 'up'
-                    },
-                    queue: queueHealth
-                }
-            });
-        } catch (error) {
-            res.status(503).json({
-                success: false,
-                error: 'System unhealthy'
-            });
-        }
+            const result = await pool.query(`SELECT method, COUNT(*) AS total_requests, AVG(response_time) AS avg_response_time,
+                MIN(response_time) AS min_response_time, MAX(response_time) AS max_response_time,
+                PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY response_time) AS p95_response_time,
+                PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY response_time) AS p99_response_time,
+                COUNT(*) FILTER (WHERE status_code >= 400) AS error_count FROM api_logs
+                WHERE endpoint = $1 AND timestamp >= NOW() - $2::interval GROUP BY method`,
+                [req.params.endpoint, normalizeTimeRange(req.query.timeRange as string)]);
+            res.json({ success: true, data: { endpoint: req.params.endpoint, stats: result.rows } });
+        } catch { res.status(500).json({ success: false, error: 'Failed to fetch endpoint details' }); }
     }
 
     static async searchEndpoints(req: Request, res: Response) {
         try {
-            const search =
-                req.query.search as string || '';
-
-            const timeRange =
-                req.query.timeRange as string || '7 days';
-
-            const statusFilter =
-                req.query.statusFilter as string || 'all';
-
-            const dataSource = normalizeDataSource(req.query.dataSource as string);
-
-            const endpoints = await MetricsModel.searchEndpoints(
-                    search,
-                    timeRange,
-                    statusFilter,
-                    dataSource
-                );
-
-            res.json({
-                success: true,
-                data: endpoints
-            });
-
-        } catch (error) {
-            console.error(error);
-
-            res.status(500).json({
-                success: false,
-                error: 'Failed to search endpoints'
-            });
-        }
+            const endpoints = await MetricsModel.searchEndpoints(String(req.query.search || ''),
+                normalizeTimeRange(req.query.timeRange as string, '7 days'), String(req.query.statusFilter || 'all'));
+            res.json({ success: true, data: endpoints });
+        } catch { res.status(500).json({ success: false, error: 'Failed to search endpoints' }); }
     }
 }

@@ -9,7 +9,7 @@ description: Work safely within API Sentinel's Express, PostgreSQL, Redis, BullM
 
 Routes in `src/routes/` delegate to static controller methods. Controllers
 coordinate models and services; models contain the PostgreSQL access. Keep this
-boundary for new work. `POST /api/logs` is the reference path: it creates an
+boundary for new work. `POST /logs` is the reference path: it creates an
 `api_logs` row, groups 4xx/5xx errors, and emits realtime events.
 
 Return the existing response shapes: successful handlers normally use

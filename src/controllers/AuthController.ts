@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
 import jwt from 'jsonwebtoken';
 import { UserModel } from '../models/UserModel';
+import { revokeJwt } from '../middleware/auth';
 
 const getJwtSecret = () => {
     if (!process.env.JWT_SECRET) {
@@ -12,7 +14,7 @@ const getJwtSecret = () => {
 
 const createToken = (user: { id: number; name: string; email: string }) =>
     jwt.sign(
-        { sub: String(user.id), name: user.name, email: user.email },
+        { sub: String(user.id), name: user.name, email: user.email, jti: randomUUID() },
         getJwtSecret(),
         { expiresIn: '1d' }
     );
@@ -95,5 +97,10 @@ export class AuthController {
                 user: { id: user.id, name: user.name, email: user.email }
             }
         });
+    }
+
+    static async logout(req: Request, res: Response) {
+        await revokeJwt(res.locals.auth);
+        return res.json({ success: true, message: 'Signed out successfully' });
     }
 }
