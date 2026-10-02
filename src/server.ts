@@ -13,10 +13,9 @@ import metricsRoutes from './routes/metricsRoutes';
 import aiRoutes from './routes/aiRoutes';
 import alertRoutes from './routes/alertRoutes';
 import dashboardRoutes from './routes/dashboardRoutes';
-import authRoutes from './routes/authRoutes';
-import { authenticateJwt, isAdminEmail, isTokenRevoked, requireAdmin, verifyJwt } from './middleware/auth';
+import demoRoutes from './routes/demoRoutes';
 
-import { generalLimiter, loginLimiter, logIngestionLimiter } from './middleware/rateLimiter';
+import { demoScenarioLimiter, generalLimiter, logIngestionLimiter } from './middleware/rateLimiter';
 
 import { metricsQueue } from './jobs/metricsCalculator';
 import { telemetryQueue } from './jobs/telemetryQueue';
@@ -43,24 +42,6 @@ const io = new Server(httpServer, {
         callback(null, !req.headers.origin || allowedOrigins.includes(req.headers.origin))
 });
 
-io.use(async (socket, next) => {
-    const token = socket.handshake.auth?.token;
-    if (typeof token !== 'string') {
-        return next(new Error('Authentication required'));
-    }
-
-    try {
-        const auth = verifyJwt(token);
-        if (await isTokenRevoked(auth)) {
-            return next(new Error('Invalid or expired token'));
-        }
-        socket.data.user = auth;
-        next();
-    } catch {
-        next(new Error('Invalid or expired token'));
-    }
-});
-
 app.use(express.json());
 app.use(cors({ origin: allowedOrigins }));
 
@@ -72,9 +53,7 @@ io.on('connection', (socket) => {
     });
     
     socket.on('subscribe', (channel) => {
-        if ((channel === 'logs' || channel === 'alerts') && isAdminEmail(socket.data.user.email)) {
-            socket.join(channel);
-        }
+        if (channel === 'logs' || channel === 'alerts') socket.join(channel);
     });
 });
 
@@ -87,21 +66,18 @@ createBullBoard({
 });
 
 serverAdapter.setBasePath('/admin/queues');
-app.use('/admin/queues', authenticateJwt, requireAdmin, serverAdapter.getRouter());
+app.use('/admin/queues', serverAdapter.getRouter());
 
-const apiPaths = ['/auth', '/logs', '/metrics', '/errors', '/ai', '/alerts', '/dashboard'];
-const protectedApiPaths = ['/metrics', '/errors', '/ai', '/dashboard'];
+const apiPaths = ['/logs', '/metrics', '/errors', '/ai', '/alerts', '/dashboard', '/demo'];
 
 app.use(apiPaths, generalLimiter);
-app.use('/auth/login', loginLimiter);
-app.use('/auth', authRoutes);
-app.use(protectedApiPaths, authenticateJwt);
 app.use('/logs', logIngestionLimiter);
 app.use('/', logRoutes);
 app.use('/', metricsRoutes);
 app.use("/ai", aiRoutes);
-app.use("/alerts", authenticateJwt, requireAdmin, alertRoutes);
+app.use("/alerts", alertRoutes);
 app.use("/dashboard", dashboardRoutes);
+app.use('/demo/run', demoScenarioLimiter, demoRoutes);
 
 const realtimeSubscriber = redis.duplicate();
 void realtimeSubscriber.subscribe('realtime:telemetry');

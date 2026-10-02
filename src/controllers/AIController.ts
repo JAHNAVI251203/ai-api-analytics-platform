@@ -18,7 +18,7 @@ export class AIController {
             const cached = await redis.get('ai:anomaly-detection');
             return res.json(cached
                 ? { success: true, data: JSON.parse(cached), cached: true }
-                : { success: true, data: { hasAnomaly: false, anomalyType: 'collecting_baseline', severity: 'low', explanation: 'Collecting seven days of real telemetry for a baseline.', recommendation: 'Keep sending real API requests.' }, pending: true });
+                : { success: true, data: { hasAnomaly: false, anomalyType: 'collecting_baseline', severity: 'low', explanation: 'Collecting the first 10 real telemetry events for a baseline.', recommendation: 'Run the demo scenario once.' }, pending: true });
         } catch {
             return res.json({ success: true, data: { hasAnomaly: false, anomalyType: 'none', severity: 'low', explanation: 'Anomaly analysis is temporarily unavailable.', recommendation: 'Review current metrics.' }, fallback: true });
         }

@@ -9,10 +9,10 @@
     "start": "node dist/src/server.js",
     "worker": "node dist/src/worker.js",
     "test:rate": "tsx src/tests/test-rate-limit.ts",
-    "test:admin-auth": "tsx src/tests/test-admin-auth.ts",
     "test:webhook-policy": "tsx src/tests/test-webhook-policy.ts",
     "test:integration": "tsx src/tests/integration.test.ts",
-    "reset:telemetry": "tsx scripts/resetTelemetry.ts"
+    "test:demo-scenario": "tsx demo-api/scenario.test.ts",
+    "reset:telemetry": "docker compose exec -T api node dist/scripts/resetTelemetry.js"
   },
   "keywords": [],
   "author": "",

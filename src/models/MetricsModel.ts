@@ -35,19 +35,32 @@ export class MetricsModel {
         return result.rows;
     }
 
-    static async getAnomalyMetrics(timeRange: string = '1 hour') {
-        const [stats, endpoints] = await Promise.all([this.getOverallStats(timeRange), this.getEndpointStats(timeRange)]);
+    static async getAnomalyMetrics() {
+        const [statsResult, endpointsResult] = await Promise.all([
+            pool.query(`WITH recent AS (SELECT * FROM api_logs ORDER BY timestamp DESC, id DESC LIMIT 10)
+                SELECT COUNT(*) AS total_requests, AVG(response_time) AS avg_response_time,
+                COUNT(*) FILTER (WHERE status_code >= 400) AS error_count FROM recent`),
+            pool.query(`WITH recent AS (SELECT * FROM api_logs ORDER BY timestamp DESC, id DESC LIMIT 10)
+                SELECT endpoint, AVG(response_time) AS avg_response_time FROM recent GROUP BY endpoint`)
+        ]);
+        const stats = statsResult.rows[0] || { total_requests: 0, avg_response_time: 0, error_count: 0 };
+        const endpoints = endpointsResult.rows;
         const slowest = endpoints.reduce((current, endpoint) => Number(endpoint.avg_response_time) > Number(current.avg_response_time) ? endpoint : current,
             endpoints[0] || { endpoint: '/unknown', avg_response_time: 0 });
         return { ...stats, slowest_endpoint: slowest.endpoint };
     }
 
     static async getHistoricalBaseline() {
-        const result = await pool.query(`SELECT MIN(timestamp) <= NOW() - INTERVAL '7 days' AS ready,
-            COUNT(*) AS total_requests, COUNT(*) / 167.0 AS requests_per_hour, AVG(response_time) AS avg_response_time,
+        const result = await pool.query(`WITH baseline AS (SELECT * FROM api_logs ORDER BY timestamp ASC, id ASC LIMIT 10)
+            SELECT COUNT(*) >= 10 AS ready, COUNT(*) AS total_requests, AVG(response_time) AS avg_response_time,
             COALESCE(100.0 * COUNT(*) FILTER (WHERE status_code >= 400) / NULLIF(COUNT(*), 0), 0) AS error_rate
-            FROM api_logs WHERE timestamp >= NOW() - INTERVAL '7 days' AND timestamp < NOW() - INTERVAL '1 hour'`);
+            FROM baseline`);
         return result.rows[0];
+    }
+
+    static async getLatestEventId() {
+        const result = await pool.query('SELECT event_id FROM api_logs ORDER BY timestamp DESC, id DESC LIMIT 1');
+        return result.rows[0]?.event_id as string | undefined;
     }
 
     static async searchEndpoints(search: string, timeRange: string = '7 days', statusFilter: string = 'all') {

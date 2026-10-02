@@ -1,4 +1,4 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import RedisStore from 'rate-limit-redis';
 import { redis } from '../config/database';
 
@@ -29,22 +29,18 @@ export const logIngestionLimiter = rateLimit({
         },
     prefix: 'rl:logs:',
     }),
-    keyGenerator: (req) => req.header('x-api-key') || req.ip || 'unknown',
+    keyGenerator: (req) => req.header('x-api-key') || ipKeyGenerator(req.ip || 'unknown'),
     message: 'Log ingestion rate limit exceeded.'
 });
 
-export const loginLimiter = rateLimit({
-        windowMs: 15 * 60 * 1000,
-        max: 5,
-        keyGenerator: (req) =>
-            typeof req.body?.email === 'string'
-                ? req.body.email.trim().toLowerCase()
-                : 'invalid-login',
-        store: new RedisStore({
-            sendCommand: async (...args: string[]) => {
-                return redis.call(args[0]!, ...args.slice(1)) as Promise<any>;
-            },
-            prefix: 'rl:login:',
-        }),
-        message: { success: false, error: 'Too many sign-in attempts. Please try again later.' }
-    });
+export const demoScenarioLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 3,
+    standardHeaders: true,
+    legacyHeaders: false,
+    store: new RedisStore({
+        sendCommand: async (...args: string[]) => redis.call(args[0]!, ...args.slice(1)) as Promise<any>,
+        prefix: 'rl:demo-scenario:',
+    }),
+    message: 'Please wait before running another demo scenario.'
+});

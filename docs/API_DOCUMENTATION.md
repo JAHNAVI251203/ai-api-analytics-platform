@@ -1,6 +1,6 @@
 # API documentation
 
-All dashboard endpoints require `Authorization: Bearer <JWT>`. Time ranges are exact strings: `1 hour`, `6 hours`, `24 hours`, or `7 days`.
+Dashboard endpoints are public for the local portfolio walkthrough. Time ranges are exact strings: `1 hour`, `6 hours`, `24 hours`, or `7 days`.
 
 ## Ingest telemetry
 
@@ -24,11 +24,12 @@ All dashboard endpoints require `Authorization: Bearer <JWT>`. Time ranges are e
 - `GET /dashboard/search-endpoints?search=products&timeRange=7%20days&statusFilter=2xx`
 - `GET /ai/analyze-errors`
 - `GET /ai/detect-anomalies`
+- `POST /demo/run` runs the 20-request Demo API scenario. It is rate limited and rejects a concurrent run.
 
 AI endpoints only return worker-produced cached output or a pending response.
 
 ## Administration
 
-The configured `ADMIN_EMAIL` is required for `POST/GET /alerts/*`, `/admin/queues`, and `logs`/`alerts` Socket.IO subscriptions. Webhook targets must be allowlisted HTTPS public hosts.
+Alerts, `/admin/queues`, and `logs`/`alerts` Socket.IO subscriptions are local demo features without user roles. Webhook targets must be allowlisted HTTPS public hosts.
 
 `GET /health` checks PostgreSQL and Redis and returns `healthy` or `unhealthy`.

@@ -5,6 +5,41 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
 export class AIService {
+  private static dashboardFallback(rangeStats: Record<string, any[]>, errors: any[]) {
+    const summaries = Object.fromEntries(Object.entries(rangeStats).map(([range, endpoints]) => {
+      const total = endpoints.reduce((sum: number, endpoint: any) => sum + Number(endpoint.request_count), 0);
+      const errorCount = endpoints.reduce((sum: number, endpoint: any) => sum + Number(endpoint.error_count), 0);
+      const slowest = endpoints.reduce((current: any, endpoint: any) =>
+        Number(endpoint.avg_response_time) > Number(current.avg_response_time) ? endpoint : current,
+        endpoints[0] || { endpoint: '/unknown', avg_response_time: 0 });
+      const errorRate = total ? ((errorCount / total) * 100).toFixed(1) : '0.0';
+      return [range, `${total} requests across ${endpoints.length} endpoint groups with a ${errorRate}% error rate. ${slowest.endpoint} is the slowest observed endpoint at ${Math.round(Number(slowest.avg_response_time) || 0)} ms on average.`];
+    }));
+    const dominant = errors[0];
+    return {
+      summaries,
+      errorAnalysis: dominant ? {
+        rootCause: dominant.status_code >= 500 ? 'Internal Server Error' : 'Unknown',
+        severity: dominant.status_code >= 500 ? 'high' : 'medium',
+        suggestedFix: `Inspect ${dominant.method} ${dominant.endpoint} and its upstream dependency.`,
+        affectedEndpoints: [...new Set(errors.map(error => error.endpoint))]
+      } : { message: 'No monitored API errors are available for analysis.' }
+    };
+  }
+
+  private static anomalyFallback(metrics: any, baseline: any) {
+    const currentErrorRate = (Number(metrics.error_count) / Math.max(Number(metrics.total_requests), 1)) * 100;
+    const baselineLatency = Number(baseline.avg_response_time) || 0;
+    const baselineErrorRate = Number(baseline.error_rate) || 0;
+    if (Number(metrics.avg_response_time) > Math.max(1000, baselineLatency * 1.5)) {
+      return { hasAnomaly: true, anomalyType: 'latency_increase', severity: 'high', explanation: `Recent average latency is ${Math.round(Number(metrics.avg_response_time))} ms versus a ${Math.round(baselineLatency)} ms baseline.`, recommendation: `Inspect ${metrics.slowest_endpoint} and its downstream work.` };
+    }
+    if (currentErrorRate > Math.max(20, baselineErrorRate * 2)) {
+      return { hasAnomaly: true, anomalyType: 'error_spike', severity: 'high', explanation: `Recent error rate is ${currentErrorRate.toFixed(1)}% versus a ${baselineErrorRate.toFixed(1)}% baseline.`, recommendation: 'Inspect the failed endpoints and their logs.' };
+    }
+    return { hasAnomaly: false, anomalyType: 'none', severity: 'low', explanation: 'Recent telemetry is within the observed baseline.', recommendation: 'Continue monitoring API traffic.' };
+  }
+
   private static async fetchWithTimeout(url: string, init: RequestInit) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
@@ -17,7 +52,7 @@ export class AIService {
 
   private static async callGemini(prompt: string): Promise<string> {
     const response = await this.fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: {
@@ -124,44 +159,64 @@ export class AIService {
     }
   }
 
-  static async analyzeErrors(errors: any[]): Promise<any> {
+  static async analyzeDashboard(rangeStats: Record<string, any[]>, errors: any[]): Promise<{ summaries: Record<string, string>; errorAnalysis: any }> {
     const prompt = `
       You are an experienced Site Reliability Engineer (SRE).
 
-      Analyze the following API error logs.
+      Analyze this API telemetry dashboard. Return a concise factual summary for each supplied time range and one error analysis.
 
       Your task:
-      1. Identify the most likely root cause category.
-      2. Determine the severity.
-      3. Suggest one practical fix.
-      4. List only the affected endpoints.
+      1. Summarize each time range in 1 or 2 sentences using only its supplied endpoint statistics.
+      2. If error logs exist, identify the dominant root-cause category, severity, one practical fix, and only affected endpoints.
+      3. If no error logs exist, return an errorAnalysis object with a short message saying no monitored errors are available.
 
       Rules:
-      - Base your answer ONLY on the provided logs.
+      - Base your answer ONLY on the supplied telemetry.
       - Do not invent missing information.
-      - Keep explanations short and technical.
-      - If multiple errors exist, identify the dominant issue.
+      - All response times are in milliseconds.
+      - Keep explanations short and technical. No markdown.
 
-      Error Logs:
+      Endpoint statistics by time range:
+      ${JSON.stringify(rangeStats, null, 2)}
+
+      Error logs:
       ${JSON.stringify(errors, null, 2)}
 
       Return ONLY valid JSON.
 
       {
-        "rootCause": "Database|Authentication|Validation|Timeout|Network|Rate Limit|Internal Server Error|Unknown",
-        "severity": "low|medium|high|critical",
-        "suggestedFix": "string",
-        "affectedEndpoints": ["string"]
+        "summaries": {
+          "1 hour": "string",
+          "6 hours": "string",
+          "24 hours": "string",
+          "7 days": "string"
+        },
+        "errorAnalysis": {
+          "rootCause": "Database|Authentication|Validation|Timeout|Network|Rate Limit|Internal Server Error|Unknown",
+          "severity": "low|medium|high|critical",
+          "suggestedFix": "string",
+          "affectedEndpoints": ["string"]
+        }
       }
     `;
 
     try {
-      const result = await this.analyzeWithFallback(prompt, 150);
+      const result = await this.analyzeWithFallback(prompt, 600);
       const jsonMatch = result.match(/\{[\s\S]*\}/);
-      return JSON.parse(jsonMatch ? jsonMatch[0] : result);
+      const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : result) as any;
+      const summaries = Object.fromEntries(Object.keys(rangeStats).map(range => [
+        range,
+        typeof parsed.summaries?.[range] === 'string'
+          ? parsed.summaries[range]
+          : 'AI summary is temporarily unavailable.'
+      ]));
+      const errorAnalysis = parsed.errorAnalysis && typeof parsed.errorAnalysis === 'object'
+        ? parsed.errorAnalysis
+        : { message: errors.length ? 'AI error analysis is temporarily unavailable.' : 'No monitored API errors are available for analysis.' };
+      return { summaries, errorAnalysis };
     } catch (error) {
-      console.error("Error analysis failed:", error);
-      throw error;
+      console.error("Dashboard analysis failed:", error);
+      return this.dashboardFallback(rangeStats, errors);
     }
   }
 
@@ -185,8 +240,8 @@ export class AIService {
       - Error Rate: ${((metrics.error_count / Math.max(metrics.total_requests, 1)) * 100).toFixed(2)}%
       - Slowest Endpoint: ${metrics.slowest_endpoint}
 
-      Historical Baseline (last seven days, excluding the current hour):
-      - Typical Requests per Hour: ${baseline.requests_per_hour}
+      Historical Baseline (the first 10 stored telemetry events):
+      - Baseline Requests: ${baseline.total_requests}
       - Average Response Time: ${baseline.avg_response_time} ms
       - Average Error Rate: ${baseline.error_rate}%
 
@@ -207,7 +262,7 @@ export class AIService {
       return JSON.parse(jsonMatch ? jsonMatch[0] : result);
     } catch (error) {
       console.error("Anomaly detection failed:", error);
-      throw error;
+      return this.anomalyFallback(metrics, baseline);
     }
   }
 

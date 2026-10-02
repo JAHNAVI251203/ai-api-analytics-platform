@@ -3,7 +3,7 @@ import { metricsQueue } from './metricsCalculator';
 export async function setupScheduledJobs() {
     const repeatableJobs = await metricsQueue.getRepeatableJobs();
     for (const job of repeatableJobs) {
-        if (job.name === 'generate-demo-data') {
+        if (['generate-demo-data', 'analyze-errors', 'summarize-dashboard'].includes(job.name)) {
             await metricsQueue.removeRepeatableByKey(job.key);
         }
     }
@@ -32,15 +32,9 @@ export async function setupScheduledJobs() {
     );
 
     await metricsQueue.add(
-        'analyze-errors',
+        'analyze-dashboard',
         {},
-        scheduledOptions('*/30 * * * *', 'analyze-errors')
-    );
-
-    await metricsQueue.add(
-        'summarize-dashboard',
-        {},
-        scheduledOptions('*/30 * * * *', 'summarize-dashboard')
+        scheduledOptions('*/5 * * * *', 'analyze-dashboard')
     );
 
     //cleaning up old logs at 2 AM everday
