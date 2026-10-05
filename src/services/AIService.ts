@@ -13,7 +13,11 @@ export class AIService {
         Number(endpoint.avg_response_time) > Number(current.avg_response_time) ? endpoint : current,
         endpoints[0] || { endpoint: '/unknown', avg_response_time: 0 });
       const errorRate = total ? ((errorCount / total) * 100).toFixed(1) : '0.0';
-      return [range, `${total} requests across ${endpoints.length} endpoint groups with a ${errorRate}% error rate. ${slowest.endpoint} is the slowest observed endpoint at ${Math.round(Number(slowest.avg_response_time) || 0)} ms on average.`];
+      const summary = `${total} requests across ${endpoints.length} endpoint groups with a ${errorRate}% error rate. ${slowest.endpoint} is the slowest observed endpoint at ${Math.round(Number(slowest.avg_response_time) || 0)} ms on average.`;
+      const actions = total === 0
+        ? 'Next best actions:\n1. Send representative traffic through the monitored APIs to establish a baseline.\n2. Confirm ingestion is receiving new telemetry events.'
+        : `Next best actions:\n1. ${errorCount > 0 ? 'Review failed requests and their application logs for the affected endpoints.' : 'Continue monitoring error rates after the next deployment.'}\n2. ${Number(slowest.avg_response_time) > 500 ? `Profile ${slowest.endpoint} and its downstream calls to reduce latency.` : `Track ${slowest.endpoint} after the next deployment to confirm latency remains stable.`}`;
+      return [range, `${summary}\n\n${actions}`];
     }));
     const dominant = errors[0];
     return {
@@ -31,7 +35,7 @@ export class AIService {
     const currentErrorRate = (Number(metrics.error_count) / Math.max(Number(metrics.total_requests), 1)) * 100;
     const baselineLatency = Number(baseline.avg_response_time) || 0;
     const baselineErrorRate = Number(baseline.error_rate) || 0;
-    if (Number(metrics.avg_response_time) > Math.max(1000, baselineLatency * 1.5)) {
+    if (Number(metrics.avg_response_time) > Math.max(500, baselineLatency * 1.5)) {
       return { hasAnomaly: true, anomalyType: 'latency_increase', severity: 'high', explanation: `Recent average latency is ${Math.round(Number(metrics.avg_response_time))} ms versus a ${Math.round(baselineLatency)} ms baseline.`, recommendation: `Inspect ${metrics.slowest_endpoint} and its downstream work.` };
     }
     if (currentErrorRate > Math.max(20, baselineErrorRate * 2)) {
@@ -163,10 +167,10 @@ export class AIService {
     const prompt = `
       You are an experienced Site Reliability Engineer (SRE).
 
-      Analyze this API telemetry dashboard. Return a concise factual summary for each supplied time range and one error analysis.
+      Analyze this API telemetry dashboard. Return a factual assessment and practical developer next steps for each supplied time range, plus one error analysis.
 
       Your task:
-      1. Summarize each time range in 1 or 2 sentences using only its supplied endpoint statistics.
+      1. For each time range, write a 2 or 3 sentence factual assessment using only its supplied endpoint statistics, followed by a "Next best actions:" section with exactly two numbered developer actions.
       2. If error logs exist, identify the dominant root-cause category, severity, one practical fix, and only affected endpoints.
       3. If no error logs exist, return an errorAnalysis object with a short message saying no monitored errors are available.
 
@@ -174,7 +178,8 @@ export class AIService {
       - Base your answer ONLY on the supplied telemetry.
       - Do not invent missing information.
       - All response times are in milliseconds.
-      - Keep explanations short and technical. No markdown.
+      - Actions must be specific to observed errors, elevated latency, traffic, or monitoring; if telemetry is healthy, recommend a proportionate verification step.
+      - Keep explanations short, technical, and plain text. Within each summary string, use line breaks before "Next best actions:" and before each numbered action. Do not use markdown.
 
       Endpoint statistics by time range:
       ${JSON.stringify(rangeStats, null, 2)}
@@ -231,7 +236,7 @@ export class AIService {
       - All response times are in milliseconds (ms).
       - Low traffic alone is NOT an anomaly.
       - Do not exaggerate problems.
-      - Consider latency above 1000 ms or error rate above 20% as significant.
+      - Consider latency above 500 ms or error rate above 20% as significant.
       - If everything looks normal, return "none".
 
       Current Metrics:

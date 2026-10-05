@@ -22,10 +22,10 @@ const responses: Record<string, DemoResponse> = {
     'GET /products': { status: 200, delay: 20, body: { products: [{ id: 1, name: 'Notebook', price: 12 }] } },
     'GET /inventory': { status: 200, delay: 30, body: { available: 42 } },
     'POST /orders': { status: 201, delay: 150, body: () => ({ orderId: randomUUID() }) },
-    'GET /reports': { status: 200, delay: 1500, body: { generated: true } },
+    'GET /reports': { status: 200, delay: 350, body: { generated: true } },
     'GET /orders/unknown': { status: 404, delay: 50, body: { error: 'Order not found' } },
-    'POST /checkout': { status: 500, delay: 5000, body: { error: 'Checkout service unavailable' } },
-    'GET /export': { status: 200, delay: 10000, body: { exported: true } },
+    'POST /checkout': { status: 500, delay: 450, body: { error: 'Checkout service unavailable' } },
+    'GET /export': { status: 200, delay: 400, body: { exported: true } },
     'GET /health': { status: 200, delay: 0, body: { status: 'ok' } },
 };
 

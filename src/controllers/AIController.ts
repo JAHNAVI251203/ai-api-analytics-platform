@@ -7,7 +7,7 @@ export class AIController {
             const cached = await redis.get('ai:error-analysis');
             return res.json(cached
                 ? { success: true, data: JSON.parse(cached), cached: true }
-                : { success: true, data: { message: 'AI analysis is being prepared in the background.' }, pending: true });
+                : { success: true, data: { message: 'AI analysis will appear once the latest telemetry has been processed.' }, pending: true });
         } catch {
             return res.json({ success: true, data: { message: 'AI analysis is temporarily unavailable.' }, fallback: true });
         }
