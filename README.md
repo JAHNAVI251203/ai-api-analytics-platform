@@ -2,11 +2,10 @@
 
 API Sentinel is a backend-focused API telemetry and analytics platform. It accepts instrumented API events, persists them asynchronously, derives operational views from PostgreSQL, and streams new activity to a React dashboard.
 
-## Overview
+## Demo
 
-API monitoring needs more than a table of request logs. API Sentinel accepts structured request telemetry, queues it for durable processing, aggregates it into operational metrics, groups recurring failures, and makes recent activity available to a dashboard.
-
-The API acknowledges ingestion once a BullMQ job has been queued. A separate worker writes the event and any matching error group in PostgreSQL, invalidates affected Redis entries, and publishes a real-time event. This keeps write-heavy ingestion work out of the request path while PostgreSQL remains the durable telemetry store.
+- Dashboard: https://ai-api-analytics-dashboard.vercel.app
+- Backend: https://ai-api-analytics-platform-production.up.railway.app
 
 ## Key Features
 
@@ -132,7 +131,6 @@ The executable schema lives in [`src/migrations/init.ts`](src/migrations/init.ts
 - `api_logs` is the telemetry source of truth: unique `event_id`, service name, endpoint, method, status code, response time, and timestamp. It is indexed by timestamp and endpoint.
 - `error_groups` tracks recurring failed endpoint/method/status combinations, with first/last seen values and an occurrence count.
 - `alert_rules` stores active rule definitions; `alert_history` records webhook delivery attempts and their responses.
-- The schema also initializes a `users` table, but this repository currently has no user-auth routes.
 
 Telemetry intentionally excludes request/response bodies, client IP addresses, user-agent strings, and API keys.
 
@@ -276,22 +274,6 @@ The dashboard repository also exposes the standard Create React App `npm test` a
 The provided deployment artifact is the Docker Compose stack. Its API and worker are separate containers that share PostgreSQL and Redis; the frontend image is built with Nginx.
 
 For any hosted deployment, keep PostgreSQL and Redis private, run the API and worker as independent services with the same connection settings, configure `CORS_ORIGIN` for the dashboard origin, and store `INGESTION_API_KEY`, provider keys, and webhook allowlists in the platform secret manager. Do not expose Bull Board or local-demo public routes without adding appropriate access controls.
-
-### Existing demo links
-
-The sibling dashboard README lists these public demo URLs:
-
-- Dashboard: https://ai-api-analytics-dashboard.vercel.app
-- Backend: https://ai-api-analytics-platform-production.up.railway.app
-
-## Engineering Highlights
-
-- The ingestion endpoint is intentionally asynchronous: it acknowledges queued work while a separate worker handles durable writes, retries, and error grouping.
-- Telemetry writes are idempotent by event ID and grouped-error updates share the same database transaction as their source event.
-- Redis has distinct responsibilities for response caching, distributed rate-limit state, queue connectivity, worker-to-API event transport, and alert cooldowns.
-- AI calls are scheduled and cached, with timeouts and local fallbacks so third-party provider failures do not block core analytics.
-- Real-time dashboard updates cross the worker/API boundary through Redis Pub/Sub and Socket.IO rooms rather than direct worker access to client connections.
-- The local Compose setup demonstrates the deployment boundary between API, worker, database, cache, dashboard, and a telemetry-producing demo service.
 
 ## Documentation
 
