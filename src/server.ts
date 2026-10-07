@@ -20,9 +20,6 @@ import { demoScenarioLimiter, generalLimiter, logIngestionLimiter } from './midd
 import { metricsQueue } from './jobs/metricsCalculator';
 import { telemetryQueue } from './jobs/telemetryQueue';
 
-import { createBullBoard } from '@bull-board/api';
-import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
-import { ExpressAdapter } from '@bull-board/express';
 import { redis, pool } from './config/database';
 
 
@@ -59,15 +56,6 @@ io.on('connection', (socket) => {
 
 app.set('io', io);
 
-const serverAdapter = new ExpressAdapter();
-createBullBoard({
-    queues: [new BullMQAdapter(metricsQueue), new BullMQAdapter(telemetryQueue)],
-    serverAdapter
-});
-
-serverAdapter.setBasePath('/api/admin/queues');
-app.use('/api/admin/queues', serverAdapter.getRouter());
-
 const apiPaths = ['/api/logs', '/api/metrics', '/api/errors', '/api/ai', '/api/alerts', '/api/dashboard', '/api/demo'];
 
 app.use(apiPaths, generalLimiter);
@@ -90,10 +78,6 @@ realtimeSubscriber.on('message', (_channel, message) => {
         console.error('Invalid realtime telemetry event');
     }
 });
-
-/*app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date() });
-}); */
 
 app.get('/health', async (req, res) => {
     try {

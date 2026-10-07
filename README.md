@@ -23,7 +23,6 @@ API Sentinel is a backend-focused API telemetry and analytics platform. It accep
 - Scheduled jobs for hourly metrics caching, dashboard analysis, anomaly detection, alert evaluation, and 30-day telemetry cleanup.
 - Redis-backed, short-lived dashboard and metrics caches that are invalidated after telemetry processing.
 - Redis Pub/Sub between worker and API process; Socket.IO then delivers `new-log` and error events to subscribed dashboard clients.
-- Local Bull Board interface for inspecting the two queues.
 
 ### Analysis and alerting
 
@@ -75,7 +74,7 @@ flowchart LR
 | Real-time | Socket.IO and Redis Pub/Sub |
 | AI analysis | Gemini with OpenRouter fallbacks |
 | Frontend | Separate React + TypeScript dashboard using Axios, Recharts, and Socket.IO Client |
-| Local infrastructure | Docker, Docker Compose, Bull Board, Nginx for the dashboard image |
+| Local infrastructure | Docker, Docker Compose, Nginx for the dashboard image |
 | Checks | TypeScript build and focused Node/`tsx` scripts |
 
 ## Backend Deep Dive
@@ -116,11 +115,10 @@ All dashboard time-range inputs must be one of `1 hour`, `6 hours`, `24 hours`, 
 | Ingestion | `POST /api/logs` | Queue a validated telemetry event. Requires `X-API-Key`. |
 | Dashboard | `GET /api/dashboard?timeRange=1%20hour` | Return overview, endpoint, status, error, time-series, and cached AI-summary data. |
 | Dashboard | `GET /api/dashboard/endpoint/:endpoint` | Return per-method aggregates, including p95 and p99 latency. |
-| Dashboard | `GET /api/dashboard/search-endpoints` | Search endpoint aggregates by text, time range, and `2xx`/`4xx`/`5xx` filter. |
 | Analytics | `GET /api/metrics`, `GET /api/errors` | Read aggregate metrics or recent grouped errors. |
 | AI | `GET /api/ai/analyze-errors`, `GET /api/ai/detect-anomalies` | Read cached or pending worker-produced insights. |
 | Alerts | `POST /api/alerts/rules`, `GET /api/alerts/rules`, `POST /api/alerts/test` | Create/list alert rules or trigger an alert evaluation. |
-| Operations | `GET /health`, `GET /api/admin/queues` | Check PostgreSQL/Redis health or inspect local BullMQ queues. |
+| Operations | `GET /health` | Check PostgreSQL and Redis health. |
 | Demo | `POST /api/demo/run` | Run the controlled 20-event demo scenario. |
 
 For event payloads and response examples, see [API documentation](docs/API_DOCUMENTATION.md).
@@ -165,7 +163,7 @@ api-analytics/                         # backend repository
 │   ├── models/                         # SQL-backed telemetry, metrics, alerts
 │   ├── routes/                         # Express route definitions
 │   ├── services/                       # AI, cache, webhook, real-time services
-│   ├── server.ts                       # HTTP, Socket.IO, Bull Board, health
+│   ├── server.ts                       # HTTP, Socket.IO, rate limits, health
 │   └── worker.ts                       # background worker entry point
 ├── docs/                               # architecture, API, schema, deployment notes
 ├── docker-compose.yml                  # full local stack
@@ -226,7 +224,6 @@ Compose starts PostgreSQL, Redis, the API, the worker, and the frontend. Migrati
 
 - Dashboard: `http://localhost:3000`
 - API and health check: `http://localhost:8000/health`
-- Bull Board (local only): `http://localhost:8000/api/admin/queues`
 
 Select **Run Demo Scenario** in the dashboard to queue 20 controlled telemetry events. The worker still owns durable writes, error grouping, cache invalidation, and realtime publication; the scenario does not insert telemetry directly into the database.
 
@@ -272,7 +269,7 @@ The dashboard repository also exposes the standard Create React App `npm test` a
 
 The provided deployment artifact is the Docker Compose stack. Its API and worker are separate containers that share PostgreSQL and Redis; the frontend image is built with Nginx.
 
-For any hosted deployment, keep PostgreSQL and Redis private, run the API and worker as independent services with the same connection settings, configure `CORS_ORIGIN` for the dashboard origin, and store `INGESTION_API_KEY`, provider keys, and webhook allowlists in the platform secret manager. Do not expose Bull Board or local-demo public routes without adding appropriate access controls.
+For any hosted deployment, keep PostgreSQL and Redis private, run the API and worker as independent services with the same connection settings, configure `CORS_ORIGIN` for the dashboard origin, and store `INGESTION_API_KEY`, provider keys, and webhook allowlists in the platform secret manager.
 
 ## Documentation
 

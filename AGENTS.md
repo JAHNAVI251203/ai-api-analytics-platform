@@ -11,7 +11,7 @@ Run commands from this directory; it has its own Git repository and lockfile.
 
 ## Current structure
 
-- `src/server.ts` configures Express, CORS, Socket.IO, Bull Board, rate limits,
+- `src/server.ts` configures Express, CORS, Socket.IO, rate limits,
   migrations, and scheduled jobs.
 - `src/routes/` maps paths to controller static methods.
 - `src/controllers/` handles HTTP orchestration and `{ success, data }` or

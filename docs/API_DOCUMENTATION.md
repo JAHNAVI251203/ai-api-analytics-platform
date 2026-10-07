@@ -21,7 +21,6 @@ Dashboard endpoints are public for the local portfolio walkthrough. Time ranges 
 
 - `GET /api/dashboard?timeRange=1%20hour`
 - `GET /api/metrics?timeRange=24%20hours`
-- `GET /api/dashboard/search-endpoints?search=products&timeRange=7%20days&statusFilter=2xx`
 - `GET /api/ai/analyze-errors`
 - `GET /api/ai/detect-anomalies`
 - `POST /api/demo/run` queues the 20-event demo scenario. It is rate limited and rejects a concurrent run.
@@ -30,6 +29,6 @@ AI endpoints only return worker-produced cached output or a pending response.
 
 ## Administration
 
-Alerts, `/api/admin/queues`, and `logs`/`alerts` Socket.IO subscriptions are local demo features without user roles. Webhook targets must be allowlisted HTTPS public hosts.
+Alert routes and `logs`/`alerts` Socket.IO subscriptions are local demo features without user roles. Webhook targets must be allowlisted HTTPS public hosts.
 
 `GET /health` checks PostgreSQL and Redis and returns `healthy` or `unhealthy`.

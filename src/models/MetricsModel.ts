@@ -63,14 +63,4 @@ export class MetricsModel {
         return result.rows[0]?.event_id as string | undefined;
     }
 
-    static async searchEndpoints(search: string, timeRange: string = '7 days', statusFilter: string = 'all') {
-        const condition = statusFilter === '2xx' ? 'AND status_code BETWEEN 200 AND 299'
-            : statusFilter === '4xx' ? 'AND status_code BETWEEN 400 AND 499'
-            : statusFilter === '5xx' ? 'AND status_code BETWEEN 500 AND 599' : '';
-        const result = await pool.query(`SELECT endpoint, method, COUNT(*) AS request_count, AVG(response_time) AS avg_response_time,
-            COUNT(*) FILTER (WHERE status_code >= 400) AS error_count FROM api_logs
-            WHERE endpoint ILIKE $1 AND timestamp >= NOW() - $2::interval ${condition}
-            GROUP BY endpoint, method ORDER BY request_count DESC`, [`%${search}%`, normalizeTimeRange(timeRange, '7 days')]);
-        return result.rows;
-    }
 }

@@ -22,7 +22,7 @@ export class DemoController {
                     jobId: 'demo-anomaly-refresh', delay: 15_000, removeOnComplete: true, removeOnFail: 10
                 })
             ]);
-            return res.status(202).json({ success: true, data: { status: 'completed', requests } });
+            return res.status(202).json({ success: true, data: { status: 'queued', requests } });
         } catch (error) {
             console.error('Demo scenario failed:', error);
             return res.status(500).json({ success: false, error: 'The demo scenario could not run.' });

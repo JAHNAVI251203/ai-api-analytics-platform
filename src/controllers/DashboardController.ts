@@ -92,13 +92,6 @@ export class DashboardController {
         } catch { res.status(500).json({ success: false, error: 'Failed to fetch endpoint details' }); }
     }
 
-    static async searchEndpoints(req: Request, res: Response) {
-        try {
-            const endpoints = await MetricsModel.searchEndpoints(String(req.query.search || ''),
-                normalizeTimeRange(req.query.timeRange as string, '7 days'), String(req.query.statusFilter || 'all'));
-            res.json({ success: true, data: endpoints });
-        } catch { res.status(500).json({ success: false, error: 'Failed to search endpoints' }); }
-    }
 }
 
 const rollingBucketByRange: Record<Exclude<TimeRange, '7 days'>, '5 minutes' | '30 minutes' | '1 hour'> = {

@@ -1,1 +1,0 @@
-ALTER TABLE api_logs RENAME COLUMN created_at TO timestamp;
