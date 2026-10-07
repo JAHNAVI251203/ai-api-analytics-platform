@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { telemetryQueue } from '../jobs/telemetryQueue';
+import { enqueueTelemetry } from '../jobs/telemetryQueue';
 
 const methods = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']);
 
@@ -44,13 +44,7 @@ export class LogController {
                 response_time: body.response_time,
             };
 
-            await telemetryQueue.add('persist-telemetry', logData, {
-                jobId: logData.event_id,
-                attempts: 5,
-                backoff: { type: 'exponential', delay: 1000 },
-                removeOnComplete: 100,
-                removeOnFail: 100
-            });
+            await enqueueTelemetry(logData);
             res.status(202).json({ success: true, data: { eventId: logData.event_id, status: 'queued' } });
         } catch (error) {
             console.error('Error ingesting log:', error);

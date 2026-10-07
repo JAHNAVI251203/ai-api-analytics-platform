@@ -11,7 +11,7 @@ async function request(path: string, init?: RequestInit) {
 }
 
 async function testApi() {
-    const ingestion = await request('/logs', {
+    const ingestion = await request('/api/logs', {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'X-API-Key': ingestionKey },
         body: JSON.stringify({ event_id: randomUUID(), service_name: 'integration-test', endpoint: '/integration-test', method: 'GET', status_code: 200, response_time: 42 })
     });

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { metricsQueue } from '../jobs/metricsCalculator';
+import { runDemoScenario } from '../services/DemoScenarioService';
 
 let scenarioRunning = false;
 
@@ -10,12 +11,8 @@ export class DemoController {
         }
 
         scenarioRunning = true;
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 20_000);
         try {
-            const demoUrl = (process.env.DEMO_API_URL || 'http://localhost:3001').replace(/\/$/, '');
-            const result = await fetch(`${demoUrl}/run-scenario`, { method: 'POST', signal: controller.signal });
-            if (!result.ok) throw new Error(`Demo API returned ${result.status}`);
+            const requests = await runDemoScenario();
 
             await Promise.all([
                 metricsQueue.add('analyze-dashboard', {}, {
@@ -25,12 +22,11 @@ export class DemoController {
                     jobId: 'demo-anomaly-refresh', delay: 15_000, removeOnComplete: true, removeOnFail: 10
                 })
             ]);
-            return res.status(202).json({ success: true, data: { status: 'completed', requests: 20 } });
+            return res.status(202).json({ success: true, data: { status: 'completed', requests } });
         } catch (error) {
             console.error('Demo scenario failed:', error);
-            return res.status(502).json({ success: false, error: 'The Demo API could not run the scenario.' });
+            return res.status(500).json({ success: false, error: 'The demo scenario could not run.' });
         } finally {
-            clearTimeout(timeout);
             scenarioRunning = false;
         }
     }

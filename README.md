@@ -11,7 +11,7 @@ API Sentinel is a backend-focused API telemetry and analytics platform. It accep
 
 ### Telemetry and analytics
 
-- API-key-protected `POST /logs` ingestion with request-shape validation and a `202 Accepted` queue response.
+- API-key-protected `POST /api/logs` ingestion with request-shape validation and a `202 Accepted` queue response.
 - Idempotent telemetry persistence using a unique `event_id`, so BullMQ retries do not create duplicate log rows.
 - PostgreSQL-backed request counts, success and error rates, latency aggregates, endpoint breakdowns, HTTP status distributions, time series, and per-endpoint p95/p99 queries.
 - Error grouping for failed requests using a SHA-256 hash of endpoint, HTTP method, and status code.
@@ -37,13 +37,14 @@ API Sentinel is a backend-focused API telemetry and analytics platform. It accep
 - Redis-backed rate limits for general API traffic, ingestion traffic, and demo-scenario runs.
 - Health endpoint that checks both PostgreSQL and Redis.
 - Configurable CORS origins for the HTTP API and Socket.IO server.
-- A Docker Compose environment that runs the dashboard, API, worker, Demo API, PostgreSQL, and Redis together.
+- A Docker Compose environment that runs the dashboard, API, worker, PostgreSQL, and Redis together.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    S[Instrumented API or Demo API] -->|POST /logs + X-API-Key| A[Express API]
+    S[Instrumented API] -->|POST /api/logs + X-API-Key| A[Express API]
+    DS[Demo scenario runner] -->|enqueue 20 controlled events| TQ
     A -->|enqueue and return 202| TQ[(BullMQ telemetry-ingestion)]
     TQ --> W[Telemetry worker]
     W -->|transactional write| P[(PostgreSQL)]
@@ -58,7 +59,7 @@ flowchart LR
     MW --> WH[Allowlisted HTTPS webhook]
 ```
 
-1. An instrumented service sends a telemetry event to `POST /logs`. The endpoint validates the event, authenticates the ingestion key, applies the ingestion rate limit, and queues the job.
+1. An instrumented service sends a telemetry event to `POST /api/logs`. The endpoint validates the event, authenticates the ingestion key, applies the ingestion rate limit, and queues the job.
 2. The telemetry worker inserts the event only if its `event_id` is new. Failed responses also update the corresponding error group in the same PostgreSQL transaction.
 3. The worker clears cached analytics and publishes the persisted event through Redis. The API process subscribes to that channel and emits Socket.IO events to the `logs` and `alerts` rooms.
 4. Dashboard and metrics requests read short-lived Redis entries when available; otherwise they query PostgreSQL and cache the computed response.
@@ -81,7 +82,7 @@ flowchart LR
 
 ### Ingestion and persistence
 
-`POST /logs` accepts only a UUID event ID, service name, endpoint, supported HTTP method, valid status code, and non-negative integer response time. Rather than performing the database write inline, the controller adds a named job to `telemetry-ingestion` with up to five attempts and exponential backoff.
+`POST /api/logs` accepts only a UUID event ID, service name, endpoint, supported HTTP method, valid status code, and non-negative integer response time. Rather than performing the database write inline, the controller adds a named job to `telemetry-ingestion` with up to five attempts and exponential backoff.
 
 The telemetry worker runs with a concurrency of five. It wraps the insert and error-group update in one PostgreSQL transaction. `api_logs.event_id` has a unique index and the insert uses `ON CONFLICT DO NOTHING`, giving retries idempotent persistence semantics.
 
@@ -112,15 +113,15 @@ All dashboard time-range inputs must be one of `1 hour`, `6 hours`, `24 hours`, 
 
 | Group | Endpoint | Purpose |
 | --- | --- | --- |
-| Ingestion | `POST /logs` | Queue a validated telemetry event. Requires `X-API-Key`. |
-| Dashboard | `GET /dashboard?timeRange=1%20hour` | Return overview, endpoint, status, error, time-series, and cached AI-summary data. |
-| Dashboard | `GET /dashboard/endpoint/:endpoint` | Return per-method aggregates, including p95 and p99 latency. |
-| Dashboard | `GET /dashboard/search-endpoints` | Search endpoint aggregates by text, time range, and `2xx`/`4xx`/`5xx` filter. |
-| Analytics | `GET /metrics`, `GET /errors` | Read aggregate metrics or recent grouped errors. |
-| AI | `GET /ai/analyze-errors`, `GET /ai/detect-anomalies` | Read cached or pending worker-produced insights. |
-| Alerts | `POST /alerts/rules`, `GET /alerts/rules`, `POST /alerts/test` | Create/list alert rules or trigger an alert evaluation. |
-| Operations | `GET /health`, `GET /admin/queues` | Check PostgreSQL/Redis health or inspect local BullMQ queues. |
-| Demo | `POST /demo/run` | Run the controlled 20-request Demo API scenario. |
+| Ingestion | `POST /api/logs` | Queue a validated telemetry event. Requires `X-API-Key`. |
+| Dashboard | `GET /api/dashboard?timeRange=1%20hour` | Return overview, endpoint, status, error, time-series, and cached AI-summary data. |
+| Dashboard | `GET /api/dashboard/endpoint/:endpoint` | Return per-method aggregates, including p95 and p99 latency. |
+| Dashboard | `GET /api/dashboard/search-endpoints` | Search endpoint aggregates by text, time range, and `2xx`/`4xx`/`5xx` filter. |
+| Analytics | `GET /api/metrics`, `GET /api/errors` | Read aggregate metrics or recent grouped errors. |
+| AI | `GET /api/ai/analyze-errors`, `GET /api/ai/detect-anomalies` | Read cached or pending worker-produced insights. |
+| Alerts | `POST /api/alerts/rules`, `GET /api/alerts/rules`, `POST /api/alerts/test` | Create/list alert rules or trigger an alert evaluation. |
+| Operations | `GET /health`, `GET /api/admin/queues` | Check PostgreSQL/Redis health or inspect local BullMQ queues. |
+| Demo | `POST /api/demo/run` | Run the controlled 20-event demo scenario. |
 
 For event payloads and response examples, see [API documentation](docs/API_DOCUMENTATION.md).
 
@@ -143,7 +144,7 @@ Two BullMQ queues separate latency-sensitive HTTP work from slower processing:
 | `telemetry-ingestion` | Persist queued events, group errors, invalidate caches, and publish real-time telemetry. |
 | `metrics-calculation` | Cache hourly metrics, analyze the dashboard, detect anomalies, evaluate alerts, and delete logs older than 30 days. |
 
-The worker schedules hourly-metric and dashboard-analysis jobs every five minutes, anomaly detection every ten minutes, alert evaluation every two minutes, and retention cleanup daily at 02:00. The Demo API scenario also queues delayed dashboard-analysis and anomaly-refresh jobs after its requests finish.
+The worker schedules hourly-metric and dashboard-analysis jobs every five minutes, anomaly detection every ten minutes, alert evaluation every two minutes, and retention cleanup daily at 02:00. The demo scenario also queues delayed dashboard-analysis and anomaly-refresh jobs after its events are queued.
 
 ## Real-Time Updates
 
@@ -166,7 +167,6 @@ api-analytics/                         # backend repository
 │   ├── services/                       # AI, cache, webhook, real-time services
 │   ├── server.ts                       # HTTP, Socket.IO, Bull Board, health
 │   └── worker.ts                       # background worker entry point
-├── demo-api/                           # controlled source of demo telemetry
 ├── docs/                               # architecture, API, schema, deployment notes
 ├── docker-compose.yml                  # full local stack
 └── Dockerfile
@@ -222,14 +222,13 @@ Start the stack:
 docker compose up --build
 ```
 
-Compose starts PostgreSQL, Redis, the API, the worker, the Demo API, and the frontend. Migrations run during API and worker startup. Open:
+Compose starts PostgreSQL, Redis, the API, the worker, and the frontend. Migrations run during API and worker startup. Open:
 
 - Dashboard: `http://localhost:3000`
 - API and health check: `http://localhost:8000/health`
-- Bull Board (local only): `http://localhost:8000/admin/queues`
-- Demo API: `http://localhost:3001`
+- Bull Board (local only): `http://localhost:8000/api/admin/queues`
 
-Select **Run Demo Scenario** in the dashboard to issue the controlled 20-request scenario through the Demo API. The events are sent back through the normal authenticated ingestion endpoint; the scenario does not insert telemetry directly into the database.
+Select **Run Demo Scenario** in the dashboard to queue 20 controlled telemetry events. The worker still owns durable writes, error grouping, cache invalidation, and realtime publication; the scenario does not insert telemetry directly into the database.
 
 ### Run services outside Docker
 
@@ -245,7 +244,7 @@ npm run build
 npm run worker
 ```
 
-To run the dashboard outside Compose, configure its `REACT_APP_API_URL` and `REACT_APP_SOCKET_URL` values (both default to `http://localhost:8000` in [`../api-dashboard/.env.example`](../api-dashboard/.env.example)), then run `npm install` and `npm start` from `api-dashboard`.
+To run the dashboard outside Compose, configure `REACT_APP_API_URL` as `http://localhost:8000/api` and `REACT_APP_SOCKET_URL` as `http://localhost:8000` in [`../api-dashboard/.env.example`](../api-dashboard/.env.example), then run `npm install` and `npm start` from `api-dashboard`.
 
 ### Reset local telemetry
 
@@ -264,7 +263,7 @@ npm run build                 # TypeScript compilation
 npm run test:webhook-policy   # webhook URL allowlist policy checks
 npm run test:demo-scenario    # verifies the controlled scenario shape
 npm run test:integration      # requires a running API and INGESTION_API_KEY
-npm run test:rate             # sends local traffic to /metrics for rate-limit inspection
+npm run test:rate             # sends local traffic to /api/metrics for rate-limit inspection
 ```
 
 The dashboard repository also exposes the standard Create React App `npm test` and `npm run build` commands.

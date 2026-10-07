@@ -6,6 +6,16 @@ import { invalidateAnalyticsCache } from '../services/CacheService';
 
 export const telemetryQueue = new Queue<ApiLog>('telemetry-ingestion', { connection: redis });
 
+export function enqueueTelemetry(log: ApiLog) {
+    return telemetryQueue.add('persist-telemetry', log, {
+        jobId: log.event_id,
+        attempts: 5,
+        backoff: { type: 'exponential', delay: 1000 },
+        removeOnComplete: 100,
+        removeOnFail: 100
+    });
+}
+
 export function startTelemetryWorker() {
     const worker = new Worker<ApiLog>('telemetry-ingestion', async (job: Job<ApiLog>) => {
         const client = await pool.connect();

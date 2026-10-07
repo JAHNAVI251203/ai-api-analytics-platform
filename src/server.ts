@@ -65,19 +65,19 @@ createBullBoard({
     serverAdapter
 });
 
-serverAdapter.setBasePath('/admin/queues');
-app.use('/admin/queues', serverAdapter.getRouter());
+serverAdapter.setBasePath('/api/admin/queues');
+app.use('/api/admin/queues', serverAdapter.getRouter());
 
-const apiPaths = ['/logs', '/metrics', '/errors', '/ai', '/alerts', '/dashboard', '/demo'];
+const apiPaths = ['/api/logs', '/api/metrics', '/api/errors', '/api/ai', '/api/alerts', '/api/dashboard', '/api/demo'];
 
 app.use(apiPaths, generalLimiter);
-app.use('/logs', logIngestionLimiter);
-app.use('/', logRoutes);
-app.use('/', metricsRoutes);
-app.use("/ai", aiRoutes);
-app.use("/alerts", alertRoutes);
-app.use("/dashboard", dashboardRoutes);
-app.use('/demo/run', demoScenarioLimiter, demoRoutes);
+app.use('/api/logs', logIngestionLimiter);
+app.use('/api', logRoutes);
+app.use('/api', metricsRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/alerts', alertRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/demo/run', demoScenarioLimiter, demoRoutes);
 
 const realtimeSubscriber = redis.duplicate();
 void realtimeSubscriber.subscribe('realtime:telemetry');

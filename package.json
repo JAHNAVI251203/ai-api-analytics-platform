@@ -11,7 +11,7 @@
     "test:rate": "tsx src/tests/test-rate-limit.ts",
     "test:webhook-policy": "tsx src/tests/test-webhook-policy.ts",
     "test:integration": "tsx src/tests/integration.test.ts",
-    "test:demo-scenario": "tsx demo-api/scenario.test.ts",
+    "test:demo-scenario": "tsx src/tests/demoScenario.test.ts",
     "reset:telemetry": "docker compose exec -T api node dist/scripts/resetTelemetry.js"
   },
   "keywords": [],
